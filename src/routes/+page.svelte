@@ -7,8 +7,6 @@
 	let elapsedTime = 0;
 	let startTime = 0;
 	let sessionStartTime = 0;
-	let currentSegmentStart = 0;
-	let workSegments = [];
 	let intervalId = null;
 	let records = [];
 	let originalTitle = '';
@@ -59,29 +57,28 @@
 		return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(2, '0')}`;
 	}
 
-	function formatDate(isoString) {
-		const date = new Date(isoString);
-		return date.toLocaleString();
-	}
-
-	function formatTimeOnly(timestamp) {
+	// Format timestamp as yyyy-MM-dd HH:mm:ss
+	function formatTimestamp(timestamp) {
 		const date = new Date(timestamp);
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
 		const hours = String(date.getHours()).padStart(2, '0');
 		const minutes = String(date.getMinutes()).padStart(2, '0');
 		const seconds = String(date.getSeconds()).padStart(2, '0');
-		return `${hours}:${minutes}:${seconds}`;
+		return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 	}
 
-	function calculateTotalWorkTime(segments) {
-		if (!segments || segments.length === 0) return 0;
-		return segments.reduce((total, segment) => total + segment.duration, 0);
-	}
-
-	function calculateTotalPauseTime(startTimestamp, endTimestamp, workSegments) {
-		if (!workSegments || workSegments.length === 0) return 0;
-		const totalSessionTime = endTimestamp - startTimestamp;
-		const totalWorkTime = calculateTotalWorkTime(workSegments);
-		return totalSessionTime - totalWorkTime;
+	// Format elapsed time as hh:mm (with 1 minute minimum)
+	function formatElapsed(ms) {
+		const totalMinutes = Math.floor(ms / 60000);
+		// Show at least 1 minute if less than 1 minute
+		if (totalMinutes < 1) {
+			return '00:01';
+		}
+		const hours = Math.floor(totalMinutes / 60);
+		const minutes = totalMinutes % 60;
+		return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 	}
 
 	async function loadRecords() {
@@ -95,10 +92,7 @@
 			// If starting fresh (not resuming), record the session start time
 			if (elapsedTime === 0) {
 				sessionStartTime = Date.now();
-				workSegments = [];
 			}
-			// Record the start of this work segment
-			currentSegmentStart = Date.now();
 			startTime = Date.now() - elapsedTime;
 			intervalId = setInterval(() => {
 				elapsedTime = Date.now() - startTime;
@@ -133,13 +127,6 @@
 				clearInterval(titleUpdateIntervalId);
 				titleUpdateIntervalId = null;
 			}
-			// Record the end of this work segment
-			const segmentEnd = Date.now();
-			workSegments.push({
-				start: currentSegmentStart,
-				end: segmentEnd,
-				duration: segmentEnd - currentSegmentStart
-			});
 		}
 	}
 
@@ -153,27 +140,17 @@
 			titleUpdateIntervalId = null;
 		}
 
-		// If currently running (not paused), add the final segment
-		if (currentSegmentStart > 0) {
-			const segmentEnd = Date.now();
-			workSegments.push({
-				start: currentSegmentStart,
-				end: segmentEnd,
-				duration: segmentEnd - currentSegmentStart
-			});
-		}
-
 		const endTimestamp = Date.now();
 
-		// Format the session start date as dd/MM/yyyy-hh:mm:ss
+		// Format the session start date as yyyy-MM-dd HH:mm:ss
 		const startDate = new Date(sessionStartTime);
-		const day = String(startDate.getDate()).padStart(2, '0');
-		const month = String(startDate.getMonth() + 1).padStart(2, '0');
 		const year = startDate.getFullYear();
+		const month = String(startDate.getMonth() + 1).padStart(2, '0');
+		const day = String(startDate.getDate()).padStart(2, '0');
 		const hours = String(startDate.getHours()).padStart(2, '0');
 		const minutes = String(startDate.getMinutes()).padStart(2, '0');
 		const seconds = String(startDate.getSeconds()).padStart(2, '0');
-		const formattedStartDate = `${day}/${month}/${year}-${hours}:${minutes}:${seconds}`;
+		const formattedStartDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
 		// Calculate elapsed time in minutes
 		const elapsedMinutes = Math.floor(elapsedTime / 60000);
@@ -185,15 +162,13 @@
 		// Create session name
 		const sessionName = `session from start date ${formattedStartDate} (${elapsedTimeStr})`;
 
-		// Save the record with work segments
-		await saveRecord(sessionName, sessionStartTime, endTimestamp, elapsedTime, workSegments);
+		// Save the record
+		await saveRecord(sessionName, sessionStartTime, endTimestamp, elapsedTime);
 		await loadRecords();
 
 		elapsedTime = 0;
 		startTime = 0;
 		sessionStartTime = 0;
-		currentSegmentStart = 0;
-		workSegments = [];
 	}
 
 	function clear() {
@@ -208,8 +183,6 @@
 		elapsedTime = 0;
 		startTime = 0;
 		sessionStartTime = 0;
-		currentSegmentStart = 0;
-		workSegments = [];
 		lastTitleUpdate = 0;
 		// Restore original title when clearing
 		if (originalTitle) {
@@ -308,72 +281,16 @@
 				<div class="max-h-96 space-y-3 overflow-y-auto">
 					{#each records as record (record.id)}
 						<div
-							class="flex flex-col gap-3 rounded border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900"
+							class="rounded border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900"
 						>
-							<span class="font-semibold text-gray-700 dark:text-gray-300">
-								⏹️ {record.sessionName}
-							</span>
-
-							<!-- Session Times -->
-							<div
-								class="flex flex-col gap-1 border-l-2 border-blue-400 pl-3 text-sm text-gray-600 dark:border-blue-500 dark:text-gray-400"
-							>
-								<div class="flex gap-2">
-									<span class="font-medium">Start:</span>
-									<span>{formatTimeOnly(record.startTimestamp)}</span>
-								</div>
-								<div class="flex gap-2">
-									<span class="font-medium">End:</span>
-									<span>{formatTimeOnly(record.endTimestamp)}</span>
-								</div>
-								<div class="flex gap-2">
-									<span class="font-medium">Total Elapsed:</span>
-									<span class="font-mono">{formatTime(record.elapsed)}</span>
-								</div>
-							</div>
-
-							<!-- Work Segments -->
-							{#if record.workSegments && record.workSegments.length > 0}
-								<div class="flex flex-col gap-2 text-sm">
-									<div class="font-medium text-gray-700 dark:text-gray-300">Work Segments:</div>
-									<div class="space-y-1 border-l-2 border-green-400 pl-3 dark:border-green-500">
-										{#each record.workSegments as segment, index (`${record.id}-${index}`)}
-											<div class="flex gap-2 text-gray-600 dark:text-gray-400">
-												<span class="font-medium">#{index + 1}:</span>
-												<span>{formatTimeOnly(segment.start)} → {formatTimeOnly(segment.end)}</span>
-												<span class="font-mono text-green-700 dark:text-green-400"
-													>({formatTime(segment.duration)})</span
-												>
-											</div>
-										{/each}
-									</div>
-									<div class="mt-1 flex gap-4 text-xs text-gray-500 dark:text-gray-400">
-										<span>
-											<span class="font-medium">Total Work:</span>
-											<span class="font-mono text-green-700 dark:text-green-400"
-												>{formatTime(calculateTotalWorkTime(record.workSegments))}</span
-											>
-										</span>
-										<span>
-											<span class="font-medium">Total Pause:</span>
-											<span class="font-mono text-orange-600 dark:text-orange-400"
-												>{formatTime(
-													calculateTotalPauseTime(
-														record.startTimestamp,
-														record.endTimestamp,
-														record.workSegments
-													)
-												)}</span
-											>
-										</span>
-									</div>
-								</div>
-							{/if}
-
-							<div
-								class="border-t pt-2 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500"
-							>
-								Recorded: {formatDate(record.date)}
+							<div class="font-mono text-sm text-gray-700 dark:text-gray-300">
+								<span class="font-semibold">start:</span>
+								{formatTimestamp(record.startTimestamp)},
+								<span class="font-semibold">end:</span>
+								{formatTimestamp(record.endTimestamp)}
+								|
+								<span class="font-semibold">elapsed:</span>
+								<span class="text-blue-600 dark:text-blue-400">{formatElapsed(record.elapsed)}</span>
 							</div>
 						</div>
 					{/each}

@@ -35,10 +35,9 @@ export async function initDB() {
  * @param {number} startTimestamp - The start timestamp in milliseconds
  * @param {number} endTimestamp - The end timestamp in milliseconds
  * @param {number} elapsed - The total elapsed time in milliseconds
- * @param {Array<{start: number, end: number}>} workSegments - Array of work segments with start and end times
  * @returns {Promise<IDBValidKey>} A promise that resolves to the auto-generated record ID
  */
-export async function saveRecord(sessionName, startTimestamp, endTimestamp, elapsed, workSegments) {
+export async function saveRecord(sessionName, startTimestamp, endTimestamp, elapsed) {
 	const db = await initDB();
 	return new Promise((resolve, reject) => {
 		const transaction = db.transaction([STORE_NAME], 'readwrite');
@@ -48,7 +47,6 @@ export async function saveRecord(sessionName, startTimestamp, endTimestamp, elap
 			startTimestamp,
 			endTimestamp,
 			elapsed,
-			workSegments,
 			date: new Date().toISOString()
 		});
 
