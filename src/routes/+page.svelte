@@ -337,7 +337,7 @@
 								<div class="flex flex-col gap-2 text-sm">
 									<div class="font-medium text-gray-700 dark:text-gray-300">Work Segments:</div>
 									<div class="space-y-1 border-l-2 border-green-400 pl-3 dark:border-green-500">
-										{#each record.workSegments as segment, index (segment.start)}
+										{#each record.workSegments as segment, index (`${record.id}-${index}`)}
 											<div class="flex gap-2 text-gray-600 dark:text-gray-400">
 												<span class="font-medium">#{index + 1}:</span>
 												<span>{formatTimeOnly(segment.start)} → {formatTimeOnly(segment.end)}</span>

@@ -1,7 +1,13 @@
 const DB_NAME = 'StopwatchDB';
 const STORE_NAME = 'records';
+/** @type {IDBDatabase | null} */
 let db = null;
 
+/**
+ * Initializes the IndexedDB database for storing stopwatch records.
+ * Creates the database and object store if they don't exist.
+ * @returns {Promise<IDBDatabase>} A promise that resolves to the database instance
+ */
 export async function initDB() {
 	if (db) return db;
 
@@ -23,6 +29,15 @@ export async function initDB() {
 	});
 }
 
+/**
+ * Saves a stopwatch session record to the database.
+ * @param {string} sessionName - The name of the stopwatch session
+ * @param {number} startTimestamp - The start timestamp in milliseconds
+ * @param {number} endTimestamp - The end timestamp in milliseconds
+ * @param {number} elapsed - The total elapsed time in milliseconds
+ * @param {Array<{start: number, end: number}>} workSegments - Array of work segments with start and end times
+ * @returns {Promise<IDBValidKey>} A promise that resolves to the auto-generated record ID
+ */
 export async function saveRecord(sessionName, startTimestamp, endTimestamp, elapsed, workSegments) {
 	const db = await initDB();
 	return new Promise((resolve, reject) => {
@@ -42,6 +57,10 @@ export async function saveRecord(sessionName, startTimestamp, endTimestamp, elap
 	});
 }
 
+/**
+ * Retrieves all saved stopwatch records from the database.
+ * @returns {Promise<Array<Object>>} A promise that resolves to an array of records in reverse chronological order
+ */
 export async function getAllRecords() {
 	const db = await initDB();
 	return new Promise((resolve, reject) => {
@@ -54,6 +73,10 @@ export async function getAllRecords() {
 	});
 }
 
+/**
+ * Clears all stopwatch records from the database.
+ * @returns {Promise<void>} A promise that resolves when all records are cleared
+ */
 export async function clearAllRecords() {
 	const db = await initDB();
 	return new Promise((resolve, reject) => {
