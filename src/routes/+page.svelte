@@ -103,7 +103,7 @@
 			intervalId = setInterval(() => {
 				elapsedTime = Date.now() - startTime;
 			}, 10);
-			
+
 			// Set up title update interval (every 5 seconds)
 			if (titleUpdateIntervalId) {
 				clearInterval(titleUpdateIntervalId);
@@ -114,7 +114,7 @@
 					lastTitleUpdate = Date.now();
 				}
 			}, 5000);
-			
+
 			// Update title immediately when starting
 			if (typeof document !== 'undefined') {
 				document.title = `${formatTimeForTitle(elapsedTime)} - Stopwatch`;
@@ -152,7 +152,7 @@
 			clearInterval(titleUpdateIntervalId);
 			titleUpdateIntervalId = null;
 		}
-		
+
 		// If currently running (not paused), add the final segment
 		if (currentSegmentStart > 0) {
 			const segmentEnd = Date.now();
@@ -162,9 +162,9 @@
 				duration: segmentEnd - currentSegmentStart
 			});
 		}
-		
+
 		const endTimestamp = Date.now();
-		
+
 		// Format the session start date as dd/MM/yyyy-hh:mm:ss
 		const startDate = new Date(sessionStartTime);
 		const day = String(startDate.getDate()).padStart(2, '0');
@@ -174,22 +174,21 @@
 		const minutes = String(startDate.getMinutes()).padStart(2, '0');
 		const seconds = String(startDate.getSeconds()).padStart(2, '0');
 		const formattedStartDate = `${day}/${month}/${year}-${hours}:${minutes}:${seconds}`;
-		
+
 		// Calculate elapsed time in minutes
 		const elapsedMinutes = Math.floor(elapsedTime / 60000);
 		const elapsedHours = Math.floor(elapsedMinutes / 60);
 		const remainingMinutes = elapsedMinutes % 60;
-		const elapsedTimeStr = elapsedHours > 0 
-			? `${elapsedHours}h ${remainingMinutes}m`
-			: `${remainingMinutes}m`;
-		
+		const elapsedTimeStr =
+			elapsedHours > 0 ? `${elapsedHours}h ${remainingMinutes}m` : `${remainingMinutes}m`;
+
 		// Create session name
 		const sessionName = `session from start date ${formattedStartDate} (${elapsedTimeStr})`;
-		
+
 		// Save the record with work segments
 		await saveRecord(sessionName, sessionStartTime, endTimestamp, elapsedTime, workSegments);
 		await loadRecords();
-		
+
 		elapsedTime = 0;
 		startTime = 0;
 		sessionStartTime = 0;
@@ -230,11 +229,13 @@
 	<title>Stopwatch</title>
 </svelte:head>
 
-<main class="bg-white dark:bg-gray-900 flex min-h-screen flex-col items-center justify-center p-4">
+<main class="flex min-h-screen flex-col items-center justify-center bg-white p-4 dark:bg-gray-900">
 	<div class="w-full max-w-5xl">
 		<!-- Time Display - Centered and Huge -->
 		<div class="mb-12 text-center">
-			<h1 class="font-mono text-8xl md:text-9xl font-bold text-gray-900 dark:text-gray-100 tabular-nums tracking-tight">
+			<h1
+				class="font-mono text-8xl font-bold tracking-tight text-gray-900 tabular-nums md:text-9xl dark:text-gray-100"
+			>
 				{formatTime(elapsedTime)}
 			</h1>
 		</div>
@@ -244,7 +245,7 @@
 			{#if !isRunning && !isPaused}
 				<button
 					on:click={start}
-					class="bg-green-600 hover:bg-green-700 active:bg-green-800 rounded-lg px-16 py-8 text-3xl font-bold text-white transition-colors md:text-4xl"
+					class="rounded-lg bg-green-600 px-16 py-8 text-3xl font-bold text-white transition-colors hover:bg-green-700 active:bg-green-800 md:text-4xl"
 				>
 					Start
 				</button>
@@ -253,7 +254,7 @@
 			{#if isRunning}
 				<button
 					on:click={pause}
-					class="bg-green-600 hover:bg-green-700 active:bg-green-800 rounded-lg px-16 py-8 text-3xl font-bold text-white transition-colors md:text-4xl"
+					class="rounded-lg bg-green-600 px-16 py-8 text-3xl font-bold text-white transition-colors hover:bg-green-700 active:bg-green-800 md:text-4xl"
 				>
 					Pause
 				</button>
@@ -262,7 +263,7 @@
 			{#if isPaused}
 				<button
 					on:click={start}
-					class="bg-green-600 hover:bg-green-700 active:bg-green-800 rounded-lg px-16 py-8 text-3xl font-bold text-white transition-colors md:text-4xl"
+					class="rounded-lg bg-green-600 px-16 py-8 text-3xl font-bold text-white transition-colors hover:bg-green-700 active:bg-green-800 md:text-4xl"
 				>
 					Continue
 				</button>
@@ -271,7 +272,7 @@
 			{#if isRunning || isPaused}
 				<button
 					on:click={stop}
-					class="bg-red-600 hover:bg-red-700 active:bg-red-800 rounded-lg px-16 py-8 text-3xl font-bold text-white transition-colors md:text-4xl"
+					class="rounded-lg bg-red-600 px-16 py-8 text-3xl font-bold text-white transition-colors hover:bg-red-700 active:bg-red-800 md:text-4xl"
 				>
 					Stop
 				</button>
@@ -279,20 +280,22 @@
 
 			<button
 				on:click={clear}
-				class="bg-red-600 hover:bg-red-700 active:bg-red-800 rounded-lg px-16 py-8 text-3xl font-bold text-white transition-colors md:text-4xl"
+				class="rounded-lg bg-red-600 px-16 py-8 text-3xl font-bold text-white transition-colors hover:bg-red-700 active:bg-red-800 md:text-4xl"
 			>
 				Clear
 			</button>
 		</div>
 
 		<!-- Records - Simplified -->
-		<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-6">
+		<div
+			class="rounded-lg border border-gray-200 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-800"
+		>
 			<div class="mb-4 flex items-center justify-between">
 				<h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Records</h2>
 				{#if records.length > 0}
 					<button
 						on:click={clearRecords}
-						class="rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors"
+						class="rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700"
 					>
 						Clear All
 					</button>
@@ -300,21 +303,21 @@
 			</div>
 
 			{#if records.length === 0}
-				<div class="py-8 text-center text-gray-400 dark:text-gray-500">
-					No records yet
-				</div>
+				<div class="py-8 text-center text-gray-400 dark:text-gray-500">No records yet</div>
 			{:else}
 				<div class="max-h-96 space-y-3 overflow-y-auto">
-					{#each records as record}
+					{#each records as record (record.id)}
 						<div
-							class="flex flex-col gap-3 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4"
+							class="flex flex-col gap-3 rounded border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900"
 						>
 							<span class="font-semibold text-gray-700 dark:text-gray-300">
 								⏹️ {record.sessionName}
 							</span>
 
 							<!-- Session Times -->
-							<div class="flex flex-col gap-1 text-sm text-gray-600 dark:text-gray-400 border-l-2 border-blue-400 dark:border-blue-500 pl-3">
+							<div
+								class="flex flex-col gap-1 border-l-2 border-blue-400 pl-3 text-sm text-gray-600 dark:border-blue-500 dark:text-gray-400"
+							>
 								<div class="flex gap-2">
 									<span class="font-medium">Start:</span>
 									<span>{formatTimeOnly(record.startTimestamp)}</span>
@@ -333,29 +336,43 @@
 							{#if record.workSegments && record.workSegments.length > 0}
 								<div class="flex flex-col gap-2 text-sm">
 									<div class="font-medium text-gray-700 dark:text-gray-300">Work Segments:</div>
-									<div class="space-y-1 border-l-2 border-green-400 dark:border-green-500 pl-3">
-										{#each record.workSegments as segment, index}
+									<div class="space-y-1 border-l-2 border-green-400 pl-3 dark:border-green-500">
+										{#each record.workSegments as segment, index (segment.start)}
 											<div class="flex gap-2 text-gray-600 dark:text-gray-400">
 												<span class="font-medium">#{index + 1}:</span>
 												<span>{formatTimeOnly(segment.start)} → {formatTimeOnly(segment.end)}</span>
-												<span class="font-mono text-green-700 dark:text-green-400">({formatTime(segment.duration)})</span>
+												<span class="font-mono text-green-700 dark:text-green-400"
+													>({formatTime(segment.duration)})</span
+												>
 											</div>
 										{/each}
 									</div>
-									<div class="flex gap-4 text-xs text-gray-500 dark:text-gray-400 mt-1">
+									<div class="mt-1 flex gap-4 text-xs text-gray-500 dark:text-gray-400">
 										<span>
 											<span class="font-medium">Total Work:</span>
-											<span class="font-mono text-green-700 dark:text-green-400">{formatTime(calculateTotalWorkTime(record.workSegments))}</span>
+											<span class="font-mono text-green-700 dark:text-green-400"
+												>{formatTime(calculateTotalWorkTime(record.workSegments))}</span
+											>
 										</span>
 										<span>
 											<span class="font-medium">Total Pause:</span>
-											<span class="font-mono text-orange-600 dark:text-orange-400">{formatTime(calculateTotalPauseTime(record.startTimestamp, record.endTimestamp, record.workSegments))}</span>
+											<span class="font-mono text-orange-600 dark:text-orange-400"
+												>{formatTime(
+													calculateTotalPauseTime(
+														record.startTimestamp,
+														record.endTimestamp,
+														record.workSegments
+													)
+												)}</span
+											>
 										</span>
 									</div>
 								</div>
 							{/if}
 
-							<div class="text-xs text-gray-400 dark:text-gray-500 pt-2 border-t dark:border-gray-700">
+							<div
+								class="border-t pt-2 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500"
+							>
 								Recorded: {formatDate(record.date)}
 							</div>
 						</div>
