@@ -11,11 +11,43 @@
 	let workSegments = [];
 	let intervalId = null;
 	let records = [];
+	let originalTitle = '';
+	let titleUpdateIntervalId = null;
+	let lastTitleUpdate = 0;
 
 	onMount(async () => {
 		await initDB();
 		await loadRecords();
+		// Store the original page title
+		originalTitle = document.title;
 	});
+
+	// Format time for title (hh:mm:ss only)
+	function formatTimeForTitle(ms) {
+		const totalSeconds = Math.floor(ms / 1000);
+		const hours = Math.floor(totalSeconds / 3600);
+		const minutes = Math.floor((totalSeconds % 3600) / 60);
+		const seconds = totalSeconds % 60;
+
+		return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+	}
+
+	// Update document title every 5 seconds when running
+	$: {
+		if (typeof document !== 'undefined') {
+			if (isRunning || isPaused) {
+				// Update immediately if this is the first update or 5 seconds have passed
+				const now = Date.now();
+				if (now - lastTitleUpdate >= 5000 || lastTitleUpdate === 0) {
+					document.title = `${formatTimeForTitle(elapsedTime)} - Stopwatch`;
+					lastTitleUpdate = now;
+				}
+			} else if (elapsedTime === 0 && originalTitle) {
+				document.title = originalTitle;
+				lastTitleUpdate = 0;
+			}
+		}
+	}
 
 	function formatTime(ms) {
 		const totalSeconds = Math.floor(ms / 1000);
@@ -71,6 +103,23 @@
 			intervalId = setInterval(() => {
 				elapsedTime = Date.now() - startTime;
 			}, 10);
+			
+			// Set up title update interval (every 5 seconds)
+			if (titleUpdateIntervalId) {
+				clearInterval(titleUpdateIntervalId);
+			}
+			titleUpdateIntervalId = setInterval(() => {
+				if (typeof document !== 'undefined') {
+					document.title = `${formatTimeForTitle(elapsedTime)} - Stopwatch`;
+					lastTitleUpdate = Date.now();
+				}
+			}, 5000);
+			
+			// Update title immediately when starting
+			if (typeof document !== 'undefined') {
+				document.title = `${formatTimeForTitle(elapsedTime)} - Stopwatch`;
+				lastTitleUpdate = Date.now();
+			}
 		}
 	}
 
@@ -79,6 +128,11 @@
 			isRunning = false;
 			isPaused = true;
 			clearInterval(intervalId);
+			// Clear title update interval when pausing
+			if (titleUpdateIntervalId) {
+				clearInterval(titleUpdateIntervalId);
+				titleUpdateIntervalId = null;
+			}
 			// Record the end of this work segment
 			const segmentEnd = Date.now();
 			workSegments.push({
@@ -93,6 +147,11 @@
 		isRunning = false;
 		isPaused = false;
 		clearInterval(intervalId);
+		// Clear title update interval when stopping
+		if (titleUpdateIntervalId) {
+			clearInterval(titleUpdateIntervalId);
+			titleUpdateIntervalId = null;
+		}
 		
 		// If currently running (not paused), add the final segment
 		if (currentSegmentStart > 0) {
@@ -142,11 +201,21 @@
 		isRunning = false;
 		isPaused = false;
 		clearInterval(intervalId);
+		// Clear title update interval when clearing
+		if (titleUpdateIntervalId) {
+			clearInterval(titleUpdateIntervalId);
+			titleUpdateIntervalId = null;
+		}
 		elapsedTime = 0;
 		startTime = 0;
 		sessionStartTime = 0;
 		currentSegmentStart = 0;
 		workSegments = [];
+		lastTitleUpdate = 0;
+		// Restore original title when clearing
+		if (originalTitle) {
+			document.title = originalTitle;
+		}
 	}
 
 	async function clearRecords() {
@@ -156,6 +225,10 @@
 		}
 	}
 </script>
+
+<svelte:head>
+	<title>Stopwatch</title>
+</svelte:head>
 
 <main class="bg-white flex min-h-screen flex-col items-center justify-center p-4">
 	<div class="w-full max-w-5xl">
