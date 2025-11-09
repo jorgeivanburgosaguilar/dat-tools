@@ -230,11 +230,11 @@
 	<title>Stopwatch</title>
 </svelte:head>
 
-<main class="bg-white flex min-h-screen flex-col items-center justify-center p-4">
+<main class="bg-white dark:bg-gray-900 flex min-h-screen flex-col items-center justify-center p-4">
 	<div class="w-full max-w-5xl">
 		<!-- Time Display - Centered and Huge -->
 		<div class="mb-12 text-center">
-			<h1 class="font-mono text-8xl md:text-9xl font-bold text-gray-900 tabular-nums tracking-tight">
+			<h1 class="font-mono text-8xl md:text-9xl font-bold text-gray-900 dark:text-gray-100 tabular-nums tracking-tight">
 				{formatTime(elapsedTime)}
 			</h1>
 		</div>
@@ -286,9 +286,9 @@
 		</div>
 
 		<!-- Records - Simplified -->
-		<div class="rounded-lg border border-gray-200 bg-gray-50 p-6">
+		<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-6">
 			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-2xl font-bold text-gray-900">Records</h2>
+				<h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Records</h2>
 				{#if records.length > 0}
 					<button
 						on:click={clearRecords}
@@ -300,21 +300,21 @@
 			</div>
 
 			{#if records.length === 0}
-				<div class="py-8 text-center text-gray-400">
+				<div class="py-8 text-center text-gray-400 dark:text-gray-500">
 					No records yet
 				</div>
 			{:else}
 				<div class="max-h-96 space-y-3 overflow-y-auto">
 					{#each records as record}
 						<div
-							class="flex flex-col gap-3 rounded border border-gray-200 bg-white p-4"
+							class="flex flex-col gap-3 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4"
 						>
-							<span class="font-semibold text-gray-700">
+							<span class="font-semibold text-gray-700 dark:text-gray-300">
 								⏹️ {record.sessionName}
 							</span>
-							
+
 							<!-- Session Times -->
-							<div class="flex flex-col gap-1 text-sm text-gray-600 border-l-2 border-blue-400 pl-3">
+							<div class="flex flex-col gap-1 text-sm text-gray-600 dark:text-gray-400 border-l-2 border-blue-400 dark:border-blue-500 pl-3">
 								<div class="flex gap-2">
 									<span class="font-medium">Start:</span>
 									<span>{formatTimeOnly(record.startTimestamp)}</span>
@@ -332,30 +332,30 @@
 							<!-- Work Segments -->
 							{#if record.workSegments && record.workSegments.length > 0}
 								<div class="flex flex-col gap-2 text-sm">
-									<div class="font-medium text-gray-700">Work Segments:</div>
-									<div class="space-y-1 border-l-2 border-green-400 pl-3">
+									<div class="font-medium text-gray-700 dark:text-gray-300">Work Segments:</div>
+									<div class="space-y-1 border-l-2 border-green-400 dark:border-green-500 pl-3">
 										{#each record.workSegments as segment, index}
-											<div class="flex gap-2 text-gray-600">
+											<div class="flex gap-2 text-gray-600 dark:text-gray-400">
 												<span class="font-medium">#{index + 1}:</span>
 												<span>{formatTimeOnly(segment.start)} → {formatTimeOnly(segment.end)}</span>
-												<span class="font-mono text-green-700">({formatTime(segment.duration)})</span>
+												<span class="font-mono text-green-700 dark:text-green-400">({formatTime(segment.duration)})</span>
 											</div>
 										{/each}
 									</div>
-									<div class="flex gap-4 text-xs text-gray-500 mt-1">
+									<div class="flex gap-4 text-xs text-gray-500 dark:text-gray-400 mt-1">
 										<span>
-											<span class="font-medium">Total Work:</span> 
-											<span class="font-mono text-green-700">{formatTime(calculateTotalWorkTime(record.workSegments))}</span>
+											<span class="font-medium">Total Work:</span>
+											<span class="font-mono text-green-700 dark:text-green-400">{formatTime(calculateTotalWorkTime(record.workSegments))}</span>
 										</span>
 										<span>
-											<span class="font-medium">Total Pause:</span> 
-											<span class="font-mono text-orange-600">{formatTime(calculateTotalPauseTime(record.startTimestamp, record.endTimestamp, record.workSegments))}</span>
+											<span class="font-medium">Total Pause:</span>
+											<span class="font-mono text-orange-600 dark:text-orange-400">{formatTime(calculateTotalPauseTime(record.startTimestamp, record.endTimestamp, record.workSegments))}</span>
 										</span>
 									</div>
 								</div>
 							{/if}
 
-							<div class="text-xs text-gray-400 pt-2 border-t">
+							<div class="text-xs text-gray-400 dark:text-gray-500 pt-2 border-t dark:border-gray-700">
 								Recorded: {formatDate(record.date)}
 							</div>
 						</div>
