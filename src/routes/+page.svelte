@@ -2,16 +2,16 @@
 	import { onMount } from 'svelte';
 	import { initDB, saveRecord, getAllRecords, clearAllRecords } from '$lib/db';
 
-	let isRunning = false;
-	let isPaused = false;
-	let elapsedTime = 0;
-	let startTime = 0;
-	let sessionStartTime = 0;
-	let intervalId = null;
-	let records = [];
-	let originalTitle = '';
-	let titleUpdateIntervalId = null;
-	let lastTitleUpdate = 0;
+	let isRunning = $state(false);
+	let isPaused = $state(false);
+	let elapsedTime = $state(0);
+	let startTime = $state(0);
+	let sessionStartTime = $state(0);
+	let intervalId = $state(null);
+	let records = $state([]);
+	let originalTitle = $state('');
+	let titleUpdateIntervalId = $state(null);
+	let lastTitleUpdate = $state(0);
 
 	onMount(async () => {
 		await initDB();
@@ -31,7 +31,7 @@
 	}
 
 	// Update document title every 5 seconds when running
-	$: {
+	$effect(() => {
 		if (typeof document !== 'undefined') {
 			if (isRunning || isPaused) {
 				// Update immediately if this is the first update or 5 seconds have passed
@@ -45,7 +45,7 @@
 				lastTitleUpdate = 0;
 			}
 		}
-	}
+	});
 
 	function formatTime(ms) {
 		const totalSeconds = Math.floor(ms / 1000);
@@ -142,28 +142,8 @@
 
 		const endTimestamp = Date.now();
 
-		// Format the session start date as yyyy-MM-dd HH:mm:ss
-		const startDate = new Date(sessionStartTime);
-		const year = startDate.getFullYear();
-		const month = String(startDate.getMonth() + 1).padStart(2, '0');
-		const day = String(startDate.getDate()).padStart(2, '0');
-		const hours = String(startDate.getHours()).padStart(2, '0');
-		const minutes = String(startDate.getMinutes()).padStart(2, '0');
-		const seconds = String(startDate.getSeconds()).padStart(2, '0');
-		const formattedStartDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-
-		// Calculate elapsed time in minutes
-		const elapsedMinutes = Math.floor(elapsedTime / 60000);
-		const elapsedHours = Math.floor(elapsedMinutes / 60);
-		const remainingMinutes = elapsedMinutes % 60;
-		const elapsedTimeStr =
-			elapsedHours > 0 ? `${elapsedHours}h ${remainingMinutes}m` : `${remainingMinutes}m`;
-
-		// Create session name
-		const sessionName = `session from start date ${formattedStartDate} (${elapsedTimeStr})`;
-
 		// Save the record
-		await saveRecord(sessionName, sessionStartTime, endTimestamp, elapsedTime);
+		await saveRecord(sessionStartTime, endTimestamp);
 		await loadRecords();
 
 		elapsedTime = 0;
@@ -285,12 +265,11 @@
 						>
 							<div class="font-mono text-sm text-gray-700 dark:text-gray-300">
 								<span class="font-semibold">start:</span>
-								{formatTimestamp(record.startTimestamp)},
+								{formatTimestamp(record.startTimestamp)} |
 								<span class="font-semibold">end:</span>
-								{formatTimestamp(record.endTimestamp)}
-								|
+								{formatTimestamp(record.endTimestamp)} |
 								<span class="font-semibold">elapsed:</span>
-								<span class="text-blue-600 dark:text-blue-400">{formatElapsed(record.elapsed)}</span>
+								<span class="text-blue-600 dark:text-blue-400">{formatElapsed(record.endTimestamp - record.startTimestamp)}</span>
 							</div>
 						</div>
 					{/each}
