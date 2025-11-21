@@ -7,11 +7,15 @@
 	let elapsedTime = $state(0);
 	let startTime = $state(0);
 	let sessionStartTime = $state(0);
+	/** @type {NodeJS.Timeout | null} */
 	let intervalId = $state(null);
+	/** @type {any[]} */
 	let records = $state([]);
 	let originalTitle = $state('');
+	/** @type {NodeJS.Timeout | null} */
 	let titleUpdateIntervalId = $state(null);
 	let lastTitleUpdate = $state(0);
+	let showClearModal = $state(false);
 
 	onMount(async () => {
 		await initDB();
@@ -20,7 +24,11 @@
 		originalTitle = document.title;
 	});
 
-	// Format time for title (hh:mm:ss only)
+	/**
+	 * Format time for title (hh:mm:ss only)
+	 * @param {number} ms - Time in milliseconds
+	 * @returns {string} Formatted time string
+	 */
 	function formatTimeForTitle(ms) {
 		const totalSeconds = Math.floor(ms / 1000);
 		const hours = Math.floor(totalSeconds / 3600);
@@ -47,6 +55,11 @@
 		}
 	});
 
+	/**
+	 * Format time with milliseconds
+	 * @param {number} ms - Time in milliseconds
+	 * @returns {string} Formatted time string with milliseconds
+	 */
 	function formatTime(ms) {
 		const totalSeconds = Math.floor(ms / 1000);
 		const hours = Math.floor(totalSeconds / 3600);
@@ -57,7 +70,11 @@
 		return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(2, '0')}`;
 	}
 
-	// Format timestamp as yyyy-MM-dd HH:mm:ss
+	/**
+	 * Format timestamp as yyyy-MM-dd HH:mm:ss
+	 * @param {number} timestamp - Timestamp in milliseconds
+	 * @returns {string} Formatted timestamp string
+	 */
 	function formatTimestamp(timestamp) {
 		const date = new Date(timestamp);
 		const year = date.getFullYear();
@@ -69,7 +86,11 @@
 		return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 	}
 
-	// Format elapsed time as hh:mm (with 1 minute minimum)
+	/**
+	 * Format elapsed time as hh:mm (with 1 minute minimum)
+	 * @param {number} ms - Time in milliseconds
+	 * @returns {string} Formatted elapsed time
+	 */
 	function formatElapsed(ms) {
 		const totalMinutes = Math.floor(ms / 60000);
 		// Show at least 1 minute if less than 1 minute
@@ -87,12 +108,20 @@
 
 	async function start() {
 		if (!isRunning) {
-			isRunning = true;
-			isPaused = false;
-			// If starting fresh (not resuming), record the session start time
-			if (elapsedTime === 0) {
+			// If starting from stopped state (not paused), reset timer
+			if (!isPaused && elapsedTime > 0) {
+				// This is a restart after stop - reset everything
+				elapsedTime = 0;
+				startTime = 0;
+				sessionStartTime = Date.now();
+			} else if (elapsedTime === 0) {
+				// Fresh start
 				sessionStartTime = Date.now();
 			}
+			// else: resuming from pause, keep sessionStartTime
+
+			isRunning = true;
+			isPaused = false;
 			startTime = Date.now() - elapsedTime;
 			intervalId = setInterval(() => {
 				elapsedTime = Date.now() - startTime;
@@ -121,60 +150,59 @@
 		if (isRunning) {
 			isRunning = false;
 			isPaused = true;
-			clearInterval(intervalId);
+			if (intervalId) {
+				clearInterval(intervalId);
+			}
 			// Clear title update interval when pausing
 			if (titleUpdateIntervalId) {
 				clearInterval(titleUpdateIntervalId);
-				titleUpdateIntervalId = null;
 			}
+			titleUpdateIntervalId = null;
 		}
 	}
 
 	async function stop() {
 		isRunning = false;
 		isPaused = false;
-		clearInterval(intervalId);
+		if (intervalId) {
+			clearInterval(intervalId);
+		}
 		// Clear title update interval when stopping
 		if (titleUpdateIntervalId) {
 			clearInterval(titleUpdateIntervalId);
-			titleUpdateIntervalId = null;
 		}
+		titleUpdateIntervalId = null;
 
 		const endTimestamp = Date.now();
 
-		// Save the record
-		await saveRecord(sessionStartTime, endTimestamp);
-		await loadRecords();
-
-		elapsedTime = 0;
-		startTime = 0;
-		sessionStartTime = 0;
-	}
-
-	function clear() {
-		isRunning = false;
-		isPaused = false;
-		clearInterval(intervalId);
-		// Clear title update interval when clearing
-		if (titleUpdateIntervalId) {
-			clearInterval(titleUpdateIntervalId);
-			titleUpdateIntervalId = null;
+		// Save the record (only if there's actual time recorded and it's not a duplicate)
+		if (elapsedTime > 0 && sessionStartTime > 0) {
+			// Check if the last record has the same start timestamp (duplicate prevention)
+			const isDuplicate = records.length > 0 && records[records.length - 1].startTimestamp === sessionStartTime;
+			
+			if (!isDuplicate) {
+				await saveRecord(sessionStartTime, endTimestamp);
+				await loadRecords();
+			}
 		}
-		elapsedTime = 0;
-		startTime = 0;
+
+		// DON'T reset elapsedTime - keep it frozen
+		// elapsedTime stays as is (frozen)
 		sessionStartTime = 0;
-		lastTitleUpdate = 0;
-		// Restore original title when clearing
-		if (originalTitle) {
-			document.title = originalTitle;
-		}
 	}
 
 	async function clearRecords() {
-		if (confirm('Are you sure you want to clear all records?')) {
-			await clearAllRecords();
-			await loadRecords();
-		}
+		showClearModal = true;
+	}
+
+	async function confirmClearRecords() {
+		await clearAllRecords();
+		await loadRecords();
+		showClearModal = false;
+	}
+
+	function cancelClearRecords() {
+		showClearModal = false;
 	}
 </script>
 
@@ -197,45 +225,32 @@
 		<div class="mb-12 flex flex-col gap-4 md:flex-row md:justify-center">
 			{#if !isRunning && !isPaused}
 				<button
-					on:click={start}
+					onclick={start}
 					class="rounded-lg bg-green-600 px-16 py-8 text-3xl font-bold text-white transition-colors hover:bg-green-700 active:bg-green-800 md:text-4xl"
 				>
 					Start
 				</button>
-			{/if}
-
-			{#if isRunning}
+			{:else if isRunning}
 				<button
-					on:click={pause}
-					class="rounded-lg bg-green-600 px-16 py-8 text-3xl font-bold text-white transition-colors hover:bg-green-700 active:bg-green-800 md:text-4xl"
+					onclick={pause}
+					class="rounded-lg bg-yellow-600 px-16 py-8 text-3xl font-bold text-white transition-colors hover:bg-yellow-700 active:bg-yellow-800 md:text-4xl"
 				>
 					Pause
 				</button>
-			{/if}
-
-			{#if isPaused}
+			{:else if isPaused}
 				<button
-					on:click={start}
+					onclick={start}
 					class="rounded-lg bg-green-600 px-16 py-8 text-3xl font-bold text-white transition-colors hover:bg-green-700 active:bg-green-800 md:text-4xl"
 				>
 					Continue
 				</button>
 			{/if}
 
-			{#if isRunning || isPaused}
-				<button
-					on:click={stop}
-					class="rounded-lg bg-red-600 px-16 py-8 text-3xl font-bold text-white transition-colors hover:bg-red-700 active:bg-red-800 md:text-4xl"
-				>
-					Stop
-				</button>
-			{/if}
-
 			<button
-				on:click={clear}
+				onclick={stop}
 				class="rounded-lg bg-red-600 px-16 py-8 text-3xl font-bold text-white transition-colors hover:bg-red-700 active:bg-red-800 md:text-4xl"
 			>
-				Clear
+				Stop
 			</button>
 		</div>
 
@@ -247,10 +262,10 @@
 				<h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Records</h2>
 				{#if records.length > 0}
 					<button
-						on:click={clearRecords}
+						onclick={clearRecords}
 						class="rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700"
 					>
-						Clear All
+						Clear All Records
 					</button>
 				{/if}
 			</div>
@@ -277,4 +292,47 @@
 			{/if}
 		</div>
 	</div>
+
+	<!-- Confirmation Modal -->
+	{#if showClearModal}
+		<div class="fixed inset-0 z-50 flex items-center justify-center">
+			<!-- Backdrop -->
+			<div 
+				class="absolute inset-0 bg-black bg-opacity-50" 
+				role="button"
+				tabindex="0"
+				onclick={cancelClearRecords}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.preventDefault();
+						cancelClearRecords();
+					}
+				}}
+			></div>
+			
+			<!-- Modal -->
+			<div class="relative z-10 w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+				<h3 class="mb-4 text-xl font-bold text-gray-900 dark:text-gray-100">
+					Clear All Records
+				</h3>
+				<p class="mb-6 text-gray-600 dark:text-gray-300">
+					Are you sure you want to clear all records? This action cannot be undone.
+				</p>
+				<div class="flex justify-end gap-3">
+					<button
+						onclick={cancelClearRecords}
+						class="rounded-lg bg-gray-200 px-4 py-2 font-semibold text-gray-700 transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+					>
+						Cancel
+					</button>
+					<button
+						onclick={confirmClearRecords}
+						class="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-700"
+					>
+						Clear All
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
 </main>
