@@ -12,7 +12,7 @@ export async function initDB() {
 	if (db) return db;
 
 	return new Promise((resolve, reject) => {
-		const request = indexedDB.open(DB_NAME, 1);
+		const request = indexedDB.open(DB_NAME, 2);
 
 		request.onerror = () => reject(request.error);
 		request.onsuccess = () => {
@@ -37,12 +37,14 @@ export async function initDB() {
  */
 export async function saveRecord(startTimestamp, endTimestamp) {
 	const db = await initDB();
+	const elapsedMinutes = Math.floor((endTimestamp - startTimestamp) / 60000);
 	return new Promise((resolve, reject) => {
 		const transaction = db.transaction([STORE_NAME], 'readwrite');
 		const store = transaction.objectStore(STORE_NAME);
 		const request = store.add({
 			startTimestamp,
-			endTimestamp
+			endTimestamp,
+			elapsedMinutes
 		});
 
 		request.onsuccess = () => resolve(request.result);

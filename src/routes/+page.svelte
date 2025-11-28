@@ -87,19 +87,16 @@
 	}
 
 	/**
-	 * Format elapsed time as hh:mm (with 1 minute minimum)
-	 * @param {number} ms - Time in milliseconds
+	 * Format elapsed time as hh:mm (with 1 minute minimum display)
+	 * @param {number} minutes - Time in minutes
 	 * @returns {string} Formatted elapsed time
 	 */
-	function formatElapsed(ms) {
-		const totalMinutes = Math.floor(ms / 60000);
+	function formatElapsed(minutes) {
 		// Show at least 1 minute if less than 1 minute
-		if (totalMinutes < 1) {
-			return '00:01';
-		}
-		const hours = Math.floor(totalMinutes / 60);
-		const minutes = totalMinutes % 60;
-		return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+		const displayMinutes = minutes < 1 ? 1 : minutes;
+		const hours = Math.floor(displayMinutes / 60);
+		const mins = displayMinutes % 60;
+		return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 	}
 
 	async function loadRecords() {
@@ -284,7 +281,7 @@
 								<span class="font-semibold">end:</span>
 								{formatTimestamp(record.endTimestamp)} |
 								<span class="font-semibold">elapsed:</span>
-								<span class="text-blue-600 dark:text-blue-400">{formatElapsed(record.endTimestamp - record.startTimestamp)}</span>
+								<span class="text-blue-600 dark:text-blue-400">{formatElapsed(record.elapsedMinutes)}</span>
 							</div>
 						</div>
 					{/each}
