@@ -1,0 +1,37 @@
+# Dependencies - must be recreated in container
+node_modules
+
+# Build artifacts
+build
+dist
+.svelte-kit
+
+# Git
+.git
+.gitignore
+
+# IDE/Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage
+
+# Docker files (no need to copy into container)
+Dockerfile
+docker-compose.yml
+.dockerignore
