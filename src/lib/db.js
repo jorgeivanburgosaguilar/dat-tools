@@ -33,11 +33,12 @@ export async function initDB() {
  * Saves a stopwatch session record to the database.
  * @param {number} startTimestamp - The start timestamp in milliseconds
  * @param {number} endTimestamp - The end timestamp in milliseconds
+ * @param {number} elapsedMs - The actual elapsed time in milliseconds (accounts for pauses)
  * @returns {Promise<IDBValidKey>} A promise that resolves to the auto-generated record ID
  */
-export async function saveRecord(startTimestamp, endTimestamp) {
+export async function saveRecord(startTimestamp, endTimestamp, elapsedMs) {
 	const db = await initDB();
-	const elapsedMinutes = Math.floor((endTimestamp - startTimestamp) / 60000);
+	const elapsedMinutes = Math.floor(elapsedMs / 60000);
 	return new Promise((resolve, reject) => {
 		const transaction = db.transaction([STORE_NAME], 'readwrite');
 		const store = transaction.objectStore(STORE_NAME);

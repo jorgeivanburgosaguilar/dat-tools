@@ -131,7 +131,7 @@
 			startTime = Date.now() - elapsedTime;
 			intervalId = setInterval(() => {
 				elapsedTime = Date.now() - startTime;
-			}, 10);
+			}, 1000);
 
 			// Set up title update interval (every 5 seconds)
 			if (titleUpdateIntervalId) {
@@ -187,7 +187,7 @@
 			const isDuplicate = records.length > 0 && records[records.length - 1].startTimestamp === sessionStartTime;
 			
 			if (!isDuplicate) {
-				await saveRecord(sessionStartTime, endTimestamp);
+				await saveRecord(sessionStartTime, endTimestamp, elapsedTime);
 				await loadRecords();
 			}
 		}
