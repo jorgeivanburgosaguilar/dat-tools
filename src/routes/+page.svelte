@@ -70,19 +70,29 @@
 	}
 
 	/**
-	 * Format timestamp as yyyy-MM-dd HH:mm:ss
+	 * Format timestamp date as yyyy-MM-dd
 	 * @param {number} timestamp - Timestamp in milliseconds
-	 * @returns {string} Formatted timestamp string
+	 * @returns {string} Formatted date string
 	 */
-	function formatTimestamp(timestamp) {
+	function formatDate(timestamp) {
 		const date = new Date(timestamp);
 		const year = date.getFullYear();
 		const month = String(date.getMonth() + 1).padStart(2, '0');
 		const day = String(date.getDate()).padStart(2, '0');
+		return `${year}-${month}-${day}`;
+	}
+
+	/**
+	 * Format timestamp time as HH:mm:ss
+	 * @param {number} timestamp - Timestamp in milliseconds
+	 * @returns {string} Formatted time string
+	 */
+	function formatTimeOnly(timestamp) {
+		const date = new Date(timestamp);
 		const hours = String(date.getHours()).padStart(2, '0');
 		const minutes = String(date.getMinutes()).padStart(2, '0');
 		const seconds = String(date.getSeconds()).padStart(2, '0');
-		return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+		return `${hours}:${minutes}:${seconds}`;
 	}
 
 	/**
@@ -275,12 +285,7 @@
 							class="rounded border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900"
 						>
 							<div class="font-mono text-sm text-gray-700 dark:text-gray-300">
-								<span class="font-semibold">start:</span>
-								{formatTimestamp(record.startTimestamp)} |
-								<span class="font-semibold">end:</span>
-								{formatTimestamp(record.endTimestamp)} |
-								<span class="font-semibold">elapsed:</span>
-								<span class="text-blue-600 dark:text-blue-400">{formatElapsed(record.elapsedMinutes)}</span>
+								📅 {formatDate(record.startTimestamp)} ⏱ {formatTimeOnly(record.startTimestamp)}-{formatTimeOnly(record.endTimestamp)} ⏳ Duration: <span class="text-blue-600 dark:text-blue-400">{formatElapsed(record.elapsedMinutes)}</span>
 							</div>
 						</div>
 					{/each}
