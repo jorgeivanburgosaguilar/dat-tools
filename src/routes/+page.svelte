@@ -184,8 +184,9 @@
 		// Save the record (only if there's actual time recorded and it's not a duplicate)
 		if (elapsedTime > 0 && sessionStartTime > 0) {
 			// Check if the last record has the same start timestamp (duplicate prevention)
-			const isDuplicate = records.length > 0 && records[records.length - 1].startTimestamp === sessionStartTime;
-			
+			const isDuplicate =
+				records.length > 0 && records[records.length - 1].startTimestamp === sessionStartTime;
+
 			if (!isDuplicate) {
 				await saveRecord(sessionStartTime, endTimestamp, elapsedTime);
 				await loadRecords();
@@ -285,12 +286,23 @@
 							class="rounded border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900"
 						>
 							<div class="font-mono text-sm text-gray-700 dark:text-gray-300">
-								📅 {formatDate(record.startTimestamp)} ⏱ {formatTimeOnly(record.startTimestamp)}-{formatTimeOnly(record.endTimestamp)} ⏳ Duration: <span class="text-blue-600 dark:text-blue-400">{formatElapsed(record.elapsedMinutes)}</span>
+								📅 {formatDate(record.startTimestamp)} ⏱ {formatTimeOnly(
+									record.startTimestamp
+								)}-{formatTimeOnly(record.endTimestamp)} ⏳ Duration:
+								<span class="text-blue-600 dark:text-blue-400"
+									>{formatElapsed(record.elapsedMinutes)}</span
+								>
 							</div>
 						</div>
 					{/each}
 				</div>
 			{/if}
+		</div>
+
+		<div class="p-6 text-center">
+			<h4 class="font-mono font-bold tracking-tight text-gray-900 tabular-nums dark:text-gray-100">
+				Version 1.0
+			</h4>
 		</div>
 	</div>
 
@@ -298,8 +310,8 @@
 	{#if showClearModal}
 		<div class="fixed inset-0 z-50 flex items-center justify-center">
 			<!-- Backdrop -->
-			<div 
-				class="absolute inset-0 bg-black bg-opacity-50" 
+			<div
+				class="bg-opacity-50 absolute inset-0 bg-black"
 				role="button"
 				tabindex="0"
 				onclick={cancelClearRecords}
@@ -310,12 +322,10 @@
 					}
 				}}
 			></div>
-			
+
 			<!-- Modal -->
 			<div class="relative z-10 w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
-				<h3 class="mb-4 text-xl font-bold text-gray-900 dark:text-gray-100">
-					Clear All Records
-				</h3>
+				<h3 class="mb-4 text-xl font-bold text-gray-900 dark:text-gray-100">Clear All Records</h3>
 				<p class="mb-6 text-gray-600 dark:text-gray-300">
 					Are you sure you want to clear all records? This action cannot be undone.
 				</p>
