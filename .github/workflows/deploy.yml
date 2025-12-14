@@ -1,4 +1,4 @@
-name: Deploy SvelteKit (pnpm) to GitHub Pages
+name: Deploy SvelteKit to GitHub Pages
 
 on:
   push:
@@ -15,14 +15,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-
       - uses: pnpm/action-setup@v3
         with:
           version: 9
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
