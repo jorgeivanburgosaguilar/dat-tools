@@ -1,20 +1,11 @@
 <script>
 	import { onMount } from 'svelte';
 	import { initDB, saveRecord, getAllRecords, clearAllRecords } from '$lib/db';
+	import Stopwatch from '$lib/components/Stopwatch.svelte';
 
-	let isRunning = $state(false);
-	let isPaused = $state(false);
-	let elapsedTime = $state(0);
-	let startTime = $state(0);
-	let sessionStartTime = $state(0);
-	/** @type {NodeJS.Timeout | null} */
-	let intervalId = $state(null);
 	/** @type {any[]} */
 	let records = $state([]);
 	let originalTitle = $state('');
-	/** @type {NodeJS.Timeout | null} */
-	let titleUpdateIntervalId = $state(null);
-	let lastTitleUpdate = $state(0);
 	let showClearModal = $state(false);
 
 	onMount(async () => {
@@ -22,7 +13,44 @@
 		await loadRecords();
 		// Store the original page title
 		originalTitle = document.title;
+
+		// Listen for stopwatch stop events
+		/** @type {(event: Event) => void} */
+		const handleStop = (event) => {
+			handleStopwatchStop(event);
+		};
+		document.addEventListener('stopwatch-stop', handleStop);
+
+		return () => {
+			document.removeEventListener('stopwatch-stop', handleStop);
+		};
 	});
+
+	/**
+	 * Handle stopwatch stop event - save record and update title
+	 * @param {Event} event - The stop event from the stopwatch component
+	 */
+	async function handleStopwatchStop(event) {
+		const detail = (event instanceof CustomEvent) ? event.detail : {};
+		const { elapsedTime, sessionStartTime, endTimestamp } = detail || {};
+
+		// Save the record (only if there's actual time recorded and it's not a duplicate)
+		if (elapsedTime > 0 && sessionStartTime > 0) {
+			// Check if the last record has the same start timestamp (duplicate prevention)
+			const isDuplicate =
+				records.length > 0 && records[records.length - 1].startTimestamp === sessionStartTime;
+
+			if (!isDuplicate) {
+				await saveRecord(sessionStartTime, endTimestamp, elapsedTime);
+				await loadRecords();
+			}
+		}
+
+		// Reset title to original
+		if (originalTitle) {
+			document.title = originalTitle;
+		}
+	}
 
 	/**
 	 * Format time for title (hh:mm:ss only)
@@ -30,37 +58,6 @@
 	 * @returns {string} Formatted time string
 	 */
 	function formatTimeForTitle(ms) {
-		const totalSeconds = Math.floor(ms / 1000);
-		const hours = Math.floor(totalSeconds / 3600);
-		const minutes = Math.floor((totalSeconds % 3600) / 60);
-		const seconds = totalSeconds % 60;
-
-		return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-	}
-
-	// Update document title every 5 seconds when running
-	$effect(() => {
-		if (typeof document !== 'undefined') {
-			if (isRunning || isPaused) {
-				// Update immediately if this is the first update or 5 seconds have passed
-				const now = Date.now();
-				if (now - lastTitleUpdate >= 5000 || lastTitleUpdate === 0) {
-					document.title = `${formatTimeForTitle(elapsedTime)} - Stopwatch`;
-					lastTitleUpdate = now;
-				}
-			} else if (elapsedTime === 0 && originalTitle) {
-				document.title = originalTitle;
-				lastTitleUpdate = 0;
-			}
-		}
-	});
-
-	/**
-	 * Format time without milliseconds
-	 * @param {number} ms - Time in milliseconds
-	 * @returns {string} Formatted time string (hh:mm:ss)
-	 */
-	function formatTime(ms) {
 		const totalSeconds = Math.floor(ms / 1000);
 		const hours = Math.floor(totalSeconds / 3600);
 		const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -112,92 +109,6 @@
 		records = await getAllRecords();
 	}
 
-	async function start() {
-		if (!isRunning) {
-			// If starting from stopped state (not paused), reset timer
-			if (!isPaused && elapsedTime > 0) {
-				// This is a restart after stop - reset everything
-				elapsedTime = 0;
-				startTime = 0;
-				sessionStartTime = Date.now();
-			} else if (elapsedTime === 0) {
-				// Fresh start
-				sessionStartTime = Date.now();
-			}
-			// else: resuming from pause, keep sessionStartTime
-
-			isRunning = true;
-			isPaused = false;
-			startTime = Date.now() - elapsedTime;
-			intervalId = setInterval(() => {
-				elapsedTime = Date.now() - startTime;
-			}, 1000);
-
-			// Set up title update interval (every 5 seconds)
-			if (titleUpdateIntervalId) {
-				clearInterval(titleUpdateIntervalId);
-			}
-			titleUpdateIntervalId = setInterval(() => {
-				if (typeof document !== 'undefined') {
-					document.title = `${formatTimeForTitle(elapsedTime)} - Stopwatch`;
-					lastTitleUpdate = Date.now();
-				}
-			}, 5000);
-
-			// Update title immediately when starting
-			if (typeof document !== 'undefined') {
-				document.title = `${formatTimeForTitle(elapsedTime)} - Stopwatch`;
-				lastTitleUpdate = Date.now();
-			}
-		}
-	}
-
-	async function pause() {
-		if (isRunning) {
-			isRunning = false;
-			isPaused = true;
-			if (intervalId) {
-				clearInterval(intervalId);
-			}
-			// Clear title update interval when pausing
-			if (titleUpdateIntervalId) {
-				clearInterval(titleUpdateIntervalId);
-			}
-			titleUpdateIntervalId = null;
-		}
-	}
-
-	async function stop() {
-		isRunning = false;
-		isPaused = false;
-		if (intervalId) {
-			clearInterval(intervalId);
-		}
-		// Clear title update interval when stopping
-		if (titleUpdateIntervalId) {
-			clearInterval(titleUpdateIntervalId);
-		}
-		titleUpdateIntervalId = null;
-
-		const endTimestamp = Date.now();
-
-		// Save the record (only if there's actual time recorded and it's not a duplicate)
-		if (elapsedTime > 0 && sessionStartTime > 0) {
-			// Check if the last record has the same start timestamp (duplicate prevention)
-			const isDuplicate =
-				records.length > 0 && records[records.length - 1].startTimestamp === sessionStartTime;
-
-			if (!isDuplicate) {
-				await saveRecord(sessionStartTime, endTimestamp, elapsedTime);
-				await loadRecords();
-			}
-		}
-
-		// DON'T reset elapsedTime - keep it frozen
-		// elapsedTime stays as is (frozen)
-		sessionStartTime = 0;
-	}
-
 	async function clearRecords() {
 		showClearModal = true;
 	}
@@ -219,47 +130,8 @@
 
 <main class="flex min-h-screen flex-col items-center justify-center bg-white p-4 dark:bg-gray-900">
 	<div class="w-full max-w-5xl">
-		<!-- Time Display - Centered and Huge -->
-		<div class="mb-12 text-center">
-			<h1
-				class="font-mono text-8xl font-bold tracking-tight text-gray-900 tabular-nums md:text-9xl dark:text-gray-100"
-			>
-				{formatTime(elapsedTime)}
-			</h1>
-		</div>
-
-		<!-- Controls - Large Buttons -->
-		<div class="mb-12 flex flex-col gap-4 md:flex-row md:justify-center">
-			{#if !isRunning && !isPaused}
-				<button
-					onclick={start}
-					class="rounded-lg bg-green-600 px-16 py-8 text-3xl font-bold text-white transition-colors hover:bg-green-700 active:bg-green-800 md:text-4xl"
-				>
-					Start
-				</button>
-			{:else if isRunning}
-				<button
-					onclick={pause}
-					class="rounded-lg bg-yellow-600 px-16 py-8 text-3xl font-bold text-white transition-colors hover:bg-yellow-700 active:bg-yellow-800 md:text-4xl"
-				>
-					Pause
-				</button>
-			{:else if isPaused}
-				<button
-					onclick={start}
-					class="rounded-lg bg-green-600 px-16 py-8 text-3xl font-bold text-white transition-colors hover:bg-green-700 active:bg-green-800 md:text-4xl"
-				>
-					Continue
-				</button>
-			{/if}
-
-			<button
-				onclick={stop}
-				class="rounded-lg bg-red-600 px-16 py-8 text-3xl font-bold text-white transition-colors hover:bg-red-700 active:bg-red-800 md:text-4xl"
-			>
-				Stop
-			</button>
-		</div>
+		<!-- Stopwatch Component -->
+		<Stopwatch />
 
 		<!-- Records - Simplified -->
 		<div
