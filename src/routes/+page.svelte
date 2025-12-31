@@ -7,6 +7,9 @@
 	let records = $state([]);
 	let originalTitle = $state('');
 	let showClearModal = $state(false);
+	let currentElapsedTime = $state(0);
+	/** @type {NodeJS.Timeout | null} */
+	let titleUpdateIntervalId = $state(null);
 
 	onMount(() => {
 		// Run async initialization separately
@@ -18,25 +21,97 @@
 		// Store the original page title
 		originalTitle = document.title;
 
-		// Listen for stopwatch stop events
+		// Listen for stopwatch events
+		/** @type {(event: Event) => void} */
+		const handleStart = (event) => {
+			handleStopwatchStart(event);
+		};
+		/** @type {(event: Event) => void} */
+		const handlePause = (event) => {
+			handleStopwatchPause(event);
+		};
 		/** @type {(event: Event) => void} */
 		const handleStop = (event) => {
 			handleStopwatchStop(event);
 		};
+
+		document.addEventListener('stopwatch-start', handleStart);
+		document.addEventListener('stopwatch-pause', handlePause);
 		document.addEventListener('stopwatch-stop', handleStop);
 
 		return () => {
+			document.removeEventListener('stopwatch-start', handleStart);
+			document.removeEventListener('stopwatch-pause', handlePause);
 			document.removeEventListener('stopwatch-stop', handleStop);
+			if (titleUpdateIntervalId) {
+				clearInterval(titleUpdateIntervalId);
+			}
 		};
 	});
+
+	/**
+	 * Handle stopwatch start event - start title updates
+	 * @param {Event} event - The start event from the stopwatch component
+	 */
+	function handleStopwatchStart(event) {
+		const detail = event instanceof CustomEvent ? event.detail : {};
+		const { elapsedTime } = detail || {};
+		currentElapsedTime = elapsedTime || 0;
+
+		// Update title immediately
+		if (typeof document !== 'undefined') {
+			document.title = `${formatTimeForTitle(currentElapsedTime)} - Stopwatch`;
+		}
+
+		// Clear any existing interval
+		if (titleUpdateIntervalId) {
+			clearInterval(titleUpdateIntervalId);
+		}
+
+		// Set up title update interval (every 5 seconds)
+		titleUpdateIntervalId = setInterval(() => {
+			// Get current elapsed time by calculating from start
+			currentElapsedTime += 5000; // Add 5 seconds
+			if (typeof document !== 'undefined') {
+				document.title = `${formatTimeForTitle(currentElapsedTime)} - Stopwatch`;
+			}
+		}, 5000);
+	}
+
+	/**
+	 * Handle stopwatch pause event - stop title updates
+	 * @param {Event} event - The pause event from the stopwatch component
+	 */
+	function handleStopwatchPause(event) {
+		const detail = event instanceof CustomEvent ? event.detail : {};
+		const { elapsedTime } = detail || {};
+		currentElapsedTime = elapsedTime || 0;
+
+		// Clear title update interval
+		if (titleUpdateIntervalId) {
+			clearInterval(titleUpdateIntervalId);
+			titleUpdateIntervalId = null;
+		}
+
+		// Update title one last time with paused time
+		if (typeof document !== 'undefined') {
+			document.title = `${formatTimeForTitle(currentElapsedTime)} - Stopwatch`;
+		}
+	}
 
 	/**
 	 * Handle stopwatch stop event - save record and update title
 	 * @param {Event} event - The stop event from the stopwatch component
 	 */
 	async function handleStopwatchStop(event) {
-		const detail = (event instanceof CustomEvent) ? event.detail : {};
+		const detail = event instanceof CustomEvent ? event.detail : {};
 		const { elapsedTime, sessionStartTime, endTimestamp } = detail || {};
+
+		// Clear title update interval
+		if (titleUpdateIntervalId) {
+			clearInterval(titleUpdateIntervalId);
+			titleUpdateIntervalId = null;
+		}
 
 		// Save the record (only if there's actual time recorded and it's not a duplicate)
 		if (elapsedTime > 0 && sessionStartTime > 0) {

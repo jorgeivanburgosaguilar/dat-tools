@@ -50,6 +50,14 @@
 			intervalId = setInterval(() => {
 				elapsedTime = Date.now() - startTime;
 			}, 1000);
+
+			// Dispatch start event
+			const event = new CustomEvent('stopwatch-start', {
+				detail: { elapsedTime },
+				bubbles: true,
+				cancelable: true
+			});
+			document.dispatchEvent(event);
 		}
 	}
 
@@ -64,6 +72,14 @@
 				clearInterval(intervalId);
 				intervalId = null;
 			}
+
+			// Dispatch pause event
+			const event = new CustomEvent('stopwatch-pause', {
+				detail: { elapsedTime },
+				bubbles: true,
+				cancelable: true
+			});
+			document.dispatchEvent(event);
 		}
 	}
 
@@ -96,27 +112,6 @@
 
 		// DON'T reset elapsedTime - keep it frozen
 		sessionStartTime = 0;
-	}
-
-	/**
-	 * Get current elapsed time (for parent component to read)
-	 */
-	function getElapsedTime() {
-		return elapsedTime;
-	}
-
-	/**
-	 * Get running state (for parent component to read)
-	 */
-	function isStopwatchRunning() {
-		return isRunning;
-	}
-
-	/**
-	 * Get paused state (for parent component to read)
-	 */
-	function isStopwatchPaused() {
-		return isPaused;
 	}
 </script>
 
