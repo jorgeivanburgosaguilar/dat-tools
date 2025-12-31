@@ -8,9 +8,13 @@
 	let originalTitle = $state('');
 	let showClearModal = $state(false);
 
-	onMount(async () => {
-		await initDB();
-		await loadRecords();
+	onMount(() => {
+		// Run async initialization separately
+		(async () => {
+			await initDB();
+			await loadRecords();
+		})();
+
 		// Store the original page title
 		originalTitle = document.title;
 
