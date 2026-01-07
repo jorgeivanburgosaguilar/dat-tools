@@ -2,8 +2,34 @@
 	/**
 	 * Stopwatch Component
 	 * Handles start, pause, continue, and stop functionality independently
-	 * Emits 'stop' event with timing data when stopped
+	 * Uses callback props for parent communication (Svelte 5 pattern)
 	 */
+
+	/**
+	 * @typedef {Object} StopwatchStartDetail
+	 * @property {number} elapsedTime - Elapsed time in milliseconds
+	 */
+
+	/**
+	 * @typedef {Object} StopwatchPauseDetail
+	 * @property {number} elapsedTime - Elapsed time in milliseconds
+	 */
+
+	/**
+	 * @typedef {Object} StopwatchStopDetail
+	 * @property {number} elapsedTime - Elapsed time in milliseconds
+	 * @property {number} sessionStartTime - Session start timestamp
+	 * @property {number} endTimestamp - Session end timestamp
+	 */
+
+	/**
+	 * @type {{
+	 *   onstart?: (detail: StopwatchStartDetail) => void,
+	 *   onpause?: (detail: StopwatchPauseDetail) => void,
+	 *   onstop?: (detail: StopwatchStopDetail) => void | Promise<void>
+	 * }}
+	 */
+	let { onstart = () => {}, onpause = () => {}, onstop = () => {} } = $props();
 
 	let isRunning = $state(false);
 	let isPaused = $state(false);
@@ -51,13 +77,8 @@
 				elapsedTime = Date.now() - startTime;
 			}, 1000);
 
-			// Dispatch start event
-			const event = new CustomEvent('stopwatch-start', {
-				detail: { elapsedTime },
-				bubbles: true,
-				cancelable: true
-			});
-			document.dispatchEvent(event);
+			// Call parent callback
+			onstart({ elapsedTime });
 		}
 	}
 
@@ -73,18 +94,13 @@
 				intervalId = null;
 			}
 
-			// Dispatch pause event
-			const event = new CustomEvent('stopwatch-pause', {
-				detail: { elapsedTime },
-				bubbles: true,
-				cancelable: true
-			});
-			document.dispatchEvent(event);
+			// Call parent callback
+			onpause({ elapsedTime });
 		}
 	}
 
 	/**
-	 * Stop the stopwatch and emit event with timing data
+	 * Stop the stopwatch and call parent callback with timing data
 	 */
 	function stop() {
 		isRunning = false;
@@ -96,18 +112,13 @@
 
 		const endTimestamp = Date.now();
 
-		// Dispatch stop event with timing data
+		// Call parent callback with timing data
 		if (elapsedTime > 0 && sessionStartTime > 0) {
-			const event = new CustomEvent('stopwatch-stop', {
-				detail: {
-					elapsedTime,
-					sessionStartTime,
-					endTimestamp
-				},
-				bubbles: true,
-				cancelable: true
+			onstop({
+				elapsedTime,
+				sessionStartTime,
+				endTimestamp
 			});
-			document.dispatchEvent(event);
 		}
 
 		// DON'T reset elapsedTime - keep it frozen

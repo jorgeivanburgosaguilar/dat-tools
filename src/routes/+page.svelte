@@ -21,28 +21,8 @@
 		// Store the original page title
 		originalTitle = document.title;
 
-		// Listen for stopwatch events
-		/** @type {(event: Event) => void} */
-		const handleStart = (event) => {
-			handleStopwatchStart(event);
-		};
-		/** @type {(event: Event) => void} */
-		const handlePause = (event) => {
-			handleStopwatchPause(event);
-		};
-		/** @type {(event: Event) => void} */
-		const handleStop = (event) => {
-			handleStopwatchStop(event);
-		};
-
-		document.addEventListener('stopwatch-start', handleStart);
-		document.addEventListener('stopwatch-pause', handlePause);
-		document.addEventListener('stopwatch-stop', handleStop);
-
+		// Cleanup interval on unmount
 		return () => {
-			document.removeEventListener('stopwatch-start', handleStart);
-			document.removeEventListener('stopwatch-pause', handlePause);
-			document.removeEventListener('stopwatch-stop', handleStop);
 			if (titleUpdateIntervalId) {
 				clearInterval(titleUpdateIntervalId);
 			}
@@ -50,13 +30,12 @@
 	});
 
 	/**
-	 * Handle stopwatch start event - start title updates
-	 * @param {Event} event - The start event from the stopwatch component
+	 * Handle stopwatch start - start title updates
+	 * @param {{ elapsedTime: number }} detail - The start event detail from the stopwatch component
 	 */
-	function handleStopwatchStart(event) {
-		const detail = event instanceof CustomEvent ? event.detail : {};
-		const { elapsedTime } = detail || {};
-		currentElapsedTime = elapsedTime || 0;
+	function handleStopwatchStart(detail) {
+		const { elapsedTime } = detail;
+		currentElapsedTime = elapsedTime;
 
 		// Update title immediately
 		if (typeof document !== 'undefined') {
@@ -79,13 +58,12 @@
 	}
 
 	/**
-	 * Handle stopwatch pause event - stop title updates
-	 * @param {Event} event - The pause event from the stopwatch component
+	 * Handle stopwatch pause - stop title updates
+	 * @param {{ elapsedTime: number }} detail - The pause event detail from the stopwatch component
 	 */
-	function handleStopwatchPause(event) {
-		const detail = event instanceof CustomEvent ? event.detail : {};
-		const { elapsedTime } = detail || {};
-		currentElapsedTime = elapsedTime || 0;
+	function handleStopwatchPause(detail) {
+		const { elapsedTime } = detail;
+		currentElapsedTime = elapsedTime;
 
 		// Clear title update interval
 		if (titleUpdateIntervalId) {
@@ -100,12 +78,11 @@
 	}
 
 	/**
-	 * Handle stopwatch stop event - save record and update title
-	 * @param {Event} event - The stop event from the stopwatch component
+	 * Handle stopwatch stop - save record and update title
+	 * @param {{ elapsedTime: number, sessionStartTime: number, endTimestamp: number }} detail - The stop event detail from the stopwatch component
 	 */
-	async function handleStopwatchStop(event) {
-		const detail = event instanceof CustomEvent ? event.detail : {};
-		const { elapsedTime, sessionStartTime, endTimestamp } = detail || {};
+	async function handleStopwatchStop(detail) {
+		const { elapsedTime, sessionStartTime, endTimestamp } = detail;
 
 		// Clear title update interval
 		if (titleUpdateIntervalId) {
@@ -210,7 +187,11 @@
 <main class="flex min-h-screen flex-col items-center justify-center bg-white p-4 dark:bg-gray-900">
 	<div class="w-full max-w-5xl">
 		<!-- Stopwatch Component -->
-		<Stopwatch />
+		<Stopwatch
+			onstart={handleStopwatchStart}
+			onpause={handleStopwatchPause}
+			onstop={handleStopwatchStop}
+		/>
 
 		<!-- Records - Simplified -->
 		<div
