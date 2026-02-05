@@ -23,13 +23,19 @@
 	 */
 
 	/**
+	 * @typedef {Object} StopwatchTickDetail
+	 * @property {number} elapsedTime - Elapsed time in milliseconds
+	 */
+
+	/**
 	 * @type {{
 	 *   onstart?: (detail: StopwatchStartDetail) => void,
 	 *   onpause?: (detail: StopwatchPauseDetail) => void,
-	 *   onstop?: (detail: StopwatchStopDetail) => void | Promise<void>
+	 *   onstop?: (detail: StopwatchStopDetail) => void | Promise<void>,
+	 *   ontick?: (detail: StopwatchTickDetail) => void
 	 * }}
 	 */
-	let { onstart = () => {}, onpause = () => {}, onstop = () => {} } = $props();
+	let { onstart = () => {}, onpause = () => {}, onstop = () => {}, ontick = () => {} } = $props();
 
 	let isRunning = $state(false);
 	let isPaused = $state(false);
@@ -38,6 +44,8 @@
 	let sessionStartTime = $state(0);
 	/** @type {NodeJS.Timeout | null} */
 	let intervalId = $state(null);
+	/** @type {NodeJS.Timeout | null} */
+	let tickIntervalId = $state(null);
 
 	/**
 	 * Format time without milliseconds
@@ -77,6 +85,11 @@
 				elapsedTime = Date.now() - startTime;
 			}, 1000);
 
+			// Start 5-second tick interval for title updates
+			tickIntervalId = setInterval(() => {
+				ontick({ elapsedTime });
+			}, 5000);
+
 			// Call parent callback
 			onstart({ elapsedTime });
 		}
@@ -93,6 +106,10 @@
 				clearInterval(intervalId);
 				intervalId = null;
 			}
+			if (tickIntervalId) {
+				clearInterval(tickIntervalId);
+				tickIntervalId = null;
+			}
 
 			// Call parent callback
 			onpause({ elapsedTime });
@@ -108,6 +125,10 @@
 		if (intervalId) {
 			clearInterval(intervalId);
 			intervalId = null;
+		}
+		if (tickIntervalId) {
+			clearInterval(tickIntervalId);
+			tickIntervalId = null;
 		}
 
 		const endTimestamp = Date.now();
