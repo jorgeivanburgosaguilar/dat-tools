@@ -9,7 +9,14 @@
 	 * @property {() => void | Promise<void>} onclear - Callback when clear is confirmed
 	 */
 
-	let { title = 'Records', records = [], clearButtonText = 'Clear All', emptyMessage = 'No records yet', formatRow, onclear } = $props();
+	let {
+		title = 'Records',
+		records = [],
+		clearButtonText = 'Clear All',
+		emptyMessage = 'No records yet',
+		formatRow,
+		onclear
+	} = $props();
 
 	let showClearModal = $state(false);
 
@@ -38,9 +45,7 @@
 	}
 </script>
 
-<div
-	class="rounded-lg border border-gray-200 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-800"
->
+<div class="rounded-lg border border-gray-200 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-800">
 	<div class="mb-4 flex items-center justify-between">
 		<h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">{title}</h2>
 		{#if records.length > 0}
