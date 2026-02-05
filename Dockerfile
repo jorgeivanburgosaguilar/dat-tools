@@ -1,7 +1,11 @@
-# Development Dockerfile for Svelte/SvelteKit application
-# Designed for agentic coding with live code updates
+# Multi-stage production Dockerfile for SvelteKit static app
+# Stage 1: Build the application
+# Stage 2: Serve with nginx
 
-FROM node:lts-alpine
+# ============================================
+# Stage 1: Builder
+# ============================================
+FROM node:lts-alpine AS builder
 
 # Install wget for pnpm installation
 RUN apk add --no-cache wget
@@ -22,8 +26,23 @@ COPY . .
 # Install dependencies fresh (node_modules excluded via .dockerignore)
 RUN pnpm install
 
-# Expose Vite dev server port
-EXPOSE 5173
+# Build the application (outputs to /app/build)
+RUN pnpm run build
 
-# Start development server with host binding for external access
-CMD ["pnpm", "run", "dev", "--", "--host", "0.0.0.0"]
+# ============================================
+# Stage 2: Production Server
+# ============================================
+FROM nginx:alpine
+
+# Copy built static files from builder stage
+COPY --from=builder /app/build /usr/share/nginx/html
+
+# Copy custom nginx configuration (optional - using default for now)
+# If you need custom config, uncomment and create nginx.conf:
+# COPY nginx.conf /etc/nginx/nginx.conf
+
+# Expose port 80 (standard HTTP)
+EXPOSE 8080
+
+# nginx runs in foreground by default in this image
+CMD ["nginx", "-g", "daemon off;"]

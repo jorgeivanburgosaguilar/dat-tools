@@ -1,16 +1,10 @@
+# Production docker-compose configuration
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: stopwatch-app-dev
+    container_name: dat-tools
     ports:
-      - '5173:5173'
-    volumes:
-      # Mount source code for live updates
-      - .:/app
-      # Preserve container's node_modules (prevents host override)
-      - /app/node_modules
-    environment:
-      - NODE_ENV=development
+      - "8080:80"
     restart: unless-stopped
