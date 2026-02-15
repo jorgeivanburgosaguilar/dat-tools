@@ -10,12 +10,12 @@ A collection of privacy-first, client-side browser utilities for developers. All
 
 ### Tools
 
-| Tool                  | Description                | Status      |
-| --------------------- | -------------------------- | ----------- |
-| Stopwatch             | Clean, ad-free timer       | Available   |
-| JSON Parser/Validator | Parse and validate JSON    | Planned     |
-| Code/Text Diff        | Compare text side-by-side  | Planned     |
-| Word Counter          | Count words and characters | Development |
+| Tool                  | Description                | Status         |
+| --------------------- | -------------------------- | -------------- |
+| Stopwatch             | Clean, ad-free timer       | Available      |
+| JSON Parser/Validator | Parse and validate JSON    | Planned        |
+| Code/Text Diff        | Compare text side-by-side  | Planned        |
+| Word Counter          | Count words and characters | In Development |
 
 ## General Code Style
 
@@ -37,6 +37,7 @@ A collection of privacy-first, client-side browser utilities for developers. All
 - **All types must be expressed via JSDoc** (`@type`, `@param`, `@returns`, `@typedef`, etc.). Never create `.ts` files.
 - Use `/** @type {import('@sveltejs/kit').Config} */` style imports for framework types.
 - Keep `@param` / `@returns` annotations on all exported functions and SvelteKit handlers.
+- After finalizing code changes, run `pnpm check` to validate types before committing.
 
 ## Svelte
 
@@ -45,6 +46,17 @@ A collection of privacy-first, client-side browser utilities for developers. All
 - Always run `svelte-autofixer` on any Svelte component you write or modify before presenting it.
 - Use `{@render children()}` for slot content, not `<slot />`.
 - Use `onclick={handler}` attribute syntax, not `on:click={handler}`.
+
+## Component Architecture
+
+- **Prioritize reusable components** in `src/lib/components/`. Extract shared UI patterns into standalone components instead of inlining logic in pages.
+- **Components own their internal state** — manage local state (`$state`) inside the component, never leak internal mechanics to the parent.
+- **Parent communication via callback props** — use `on`-prefixed callback props (`onclear`, `onstart`, `onstop`) instead of dispatching events. Provide sensible defaults (e.g. `() => {}`).
+- **Destructure `$props()` with defaults** — every prop that can have a reasonable default should. This keeps component usage concise.
+- **Document prop contracts with JSDoc `@typedef`** — define a `@typedef` at the top of the `<script>` block describing the component's prop shape.
+- **Delegate rendering via function props** when the component shouldn't know about the parent's data shape (e.g. `formatRow` in `RecordsList`).
+- **Pages are thin orchestrators** — pages import components, wire callbacks, and manage page-level data (e.g. fetching/persisting records). Business logic and UI state live in components.
+- **Components handle their own UX concerns** — modals, confirmation dialogs, loading states, and empty states belong inside the component that needs them.
 
 ## SvelteKit
 
