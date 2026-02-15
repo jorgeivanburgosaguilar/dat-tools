@@ -1,87 +1,54 @@
 # DAT Tools
 
-> **Privacy-First Client-Side Utilities for Developers**
+A collection of privacy-first, client-side browser utilities for developers. All processing happens entirely in your browser — your data never leaves your machine.
 
-A collection of browser-based tools designed to run entirely on the client side with **zero server-side processing**. Perfect for developers working under strict NDAs or handling sensitive data, like those working on the DAT platform.
+Ideal for teams working under strict NDAs or handling sensitive information.
 
-## 🔒 Privacy & Security
+## Features
 
-All tools in this repository are built with privacy as the top priority:
+- 100% client-side processing with zero server communication
+- No analytics, tracking, or external dependencies
+- Self-hostable via Docker
 
-- ✅ **100% Client-Side Processing** - All data processing happens in your browser
-- ✅ **No Server Communication** - Your data never leaves your machine
-- ✅ **No Analytics or Tracking** - We don't collect any information
-- ✅ **Self-Hostable** - Run locally via Docker or host on your own infrastructure
-- ✅ **NDA-Safe** - Ideal for projects with strict confidentiality requirements
+## Tools
 
-## 🚀 Current Tools
+| Tool | Description | Status |
+| ------ | ------------- | -------- |
+| Stopwatch | Clean, ad-free timer | Available |
+| JSON Parser/Validator | Parse and validate JSON | Planned |
+| Code/Text Diff | Compare text side-by-side | Planned |
+| Word Counter | Count words and characters | Planned |
 
-### Stopwatch
-A clean, ad-free stopwatch application built with Svelte. No distractions, no data collection—just a simple, functional timer.
-
-## 📋 Roadmap
-
-### Planned Features
-- [ ] JSON Parser/Validator
-- [ ] Code/Text Diff Tool
-- [ ] Word Counter
-- [ ] Additional utility tools as needed
-
-### Development Tasks
-- [ ] Refactor components for better modularity
-- [ ] Code review and optimization (initial version was rapidly prototyped)
-- [ ] Improve UI/UX consistency across tools
-- [ ] Add comprehensive documentation
-
-## 🛠️ Getting Started
+## Getting Started
 
 ### Prerequisites
-- Node.js (v18 or higher)
+
+- Node.js v18+
 - pnpm (recommended) or npm
 
-### Installation
+### Development
 
 ```bash
-# Clone the repository
 git clone https://github.com/jorgeivanburgosaguilar/dat-tools.git
 cd dat-tools
-
-# Install dependencies
 pnpm install
-
-# Run development server
 pnpm dev
 ```
 
-### Docker Deployment
+### Docker
 
 ```bash
-# Build and run with Docker Compose
 docker-compose up -d
 ```
 
-The application will be available at `http://localhost:5173` (development) or your configured port.
+## Contributing
 
-## 🎯 Project Goals
+Contributions are welcome — bug fixes, new tools, or documentation improvements. Open an issue or submit a pull request.
 
-1. **Privacy First** - Never compromise user data security
-2. **Client-Side Only** - All processing happens in the browser
-3. **No Dependencies on External Services** - Fully self-contained
-4. **Developer-Friendly** - Built by developers, for developers
-5. **NDA-Compliant** - Safe for use with confidential information
+## License
 
-## 🤝 Contributing
+See [LICENSE](LICENSE).
 
-Contributions are welcome! Whether it's bug fixes, new tools, or documentation improvements, feel free to open an issue or submit a pull request.
+## Author
 
-## 📄 License
-
-This project is licensed under the terms specified in the [LICENSE](LICENSE) file.
-
-## 👤 Author
-
-**Jorge Ivan Burgos Aguilar**
-
----
-
-*Built with privacy and security in mind for the DAT community and beyond.*
+Jorge Ivan Burgos Aguilar
