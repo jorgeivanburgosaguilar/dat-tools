@@ -10,12 +10,12 @@ A collection of privacy-first, client-side browser utilities for developers. All
 
 ### Tools
 
-| Tool                  | Description                | Status    |
-| --------------------- | -------------------------- | --------- |
-| Stopwatch             | Clean, ad-free timer       | Available |
-| JSON Parser/Validator | Parse and validate JSON    | Planned   |
-| Code/Text Diff        | Compare text side-by-side  | Planned   |
-| Word Counter          | Count words and characters | Planned   |
+| Tool                  | Description                | Status      |
+| --------------------- | -------------------------- | ----------- |
+| Stopwatch             | Clean, ad-free timer       | Available   |
+| JSON Parser/Validator | Parse and validate JSON    | Planned     |
+| Code/Text Diff        | Compare text side-by-side  | Planned     |
+| Word Counter          | Count words and characters | Development |
 
 ## General Code Style
 
@@ -48,7 +48,7 @@ A collection of privacy-first, client-side browser utilities for developers. All
 
 ## SvelteKit
 
-- Adapter: `@sveltejs/adapter-static` — deployed to locally.
+- Adapter: `@sveltejs/adapter-static`
 - Path aliases: `$lib` maps to `src/lib/`.
 
 ## Formatting
