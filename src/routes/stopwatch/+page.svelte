@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { initDB, saveRecord, getAllRecords, clearAllRecords } from '$lib/db';
+  import { initDB, saveRecord, getAllRecords, clearAllRecords } from '$lib/stopwatch-db';
   import Stopwatch from '$lib/components/Stopwatch.svelte';
   import RecordsList from '$lib/components/RecordsList.svelte';
 
