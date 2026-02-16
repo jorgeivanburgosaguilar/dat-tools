@@ -21,5 +21,11 @@
     </div>
 
     <WordCounter />
+
+    <div class="p-6 text-center">
+      <h4 class="font-mono font-bold tracking-tight text-gray-900 tabular-nums dark:text-gray-100">
+        Version {__APP_VERSION__}
+      </h4>
+    </div>
   </div>
 </main>
