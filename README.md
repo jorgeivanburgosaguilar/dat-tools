@@ -12,12 +12,12 @@ Ideal for teams working under strict NDAs or handling sensitive information.
 
 ## Tools
 
-| Tool                  | Description                | Status         |
-| --------------------- | -------------------------- | -------------- |
-| Stopwatch             | Clean, ad-free timer       | Available      |
-| JSON Parser/Validator | Parse and validate JSON    | Planned        |
-| Code/Text Diff        | Compare text side-by-side  | Planned        |
-| Word Counter          | Count words and characters | In Development |
+| Tool                  | Description                | Status    |
+| --------------------- | -------------------------- | --------- |
+| Stopwatch             | Clean, ad-free timer       | Available |
+| JSON Parser/Validator | Parse and validate JSON    | Planned   |
+| Code/Text Diff        | Compare text side-by-side  | Planned   |
+| Word Counter          | Count words and characters | Available |
 
 ## Getting Started
 

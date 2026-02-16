@@ -1,4 +1,5 @@
 <script>
+  import { resolve } from '$app/paths';
   import WordCounter from '$lib/components/WordCounter.svelte';
 </script>
 
@@ -10,7 +11,7 @@
   <div class="w-full max-w-3xl">
     <div class="mb-8 text-center">
       <a
-        href="/"
+        href={resolve('/')}
         class="mb-4 inline-block text-sm text-gray-500 transition-colors hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
       >
         &larr; Back to Tools

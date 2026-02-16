@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import { resolve } from '$app/paths';
   import { initDB, saveRecord, getAllRecords, clearAllRecords } from '$lib/stopwatch-db';
   import Stopwatch from '$lib/components/Stopwatch.svelte';
   import RecordsList from '$lib/components/RecordsList.svelte';
@@ -161,6 +162,18 @@
 
 <main class="flex min-h-screen flex-col items-center justify-center bg-white p-4 dark:bg-gray-900">
   <div class="w-full max-w-5xl">
+    <div class="mb-8 text-center">
+      <a
+        href={resolve('/')}
+        class="mb-4 inline-block text-sm text-gray-500 transition-colors hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
+      >
+        &larr; Back to Tools
+      </a>
+      <h1 class="font-mono text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+        Stopwatch
+      </h1>
+    </div>
+
     <!-- Stopwatch Component -->
     <Stopwatch
       onstart={handleStopwatchStart}

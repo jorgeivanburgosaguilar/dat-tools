@@ -105,7 +105,7 @@ export function computeWordDensity(str, limit = 10) {
   /** @type {Map<string, number>} */
   const freq = new Map();
   for (const word of words) {
-    if (word === '' || word.length === 1) continue;
+    if (word === '' || word.length < 3) continue;
     freq.set(word, (freq.get(word) || 0) + 1);
   }
 

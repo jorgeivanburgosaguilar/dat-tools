@@ -69,7 +69,9 @@
       <p class="font-mono text-3xl font-bold text-teal-600 tabular-nums dark:text-teal-400">
         {charactersNoSpaces}
       </p>
-      <p class="mt-1 text-sm font-medium text-gray-500 dark:text-gray-400">No Spaces</p>
+      <p class="mt-1 text-sm font-medium text-gray-500 dark:text-gray-400">
+        Characters without spaces
+      </p>
     </div>
     <div
       class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center dark:border-gray-700 dark:bg-gray-800"
