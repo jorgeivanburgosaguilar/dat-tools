@@ -214,11 +214,12 @@ describe('computeWordDensity', () => {
     expect(result).toHaveLength(5);
   });
 
-  it('excludes single-letter words from density results', () => {
+  it('excludes words with fewer than 3 letters from density results', () => {
     const result = computeWordDensity('I am a happy person and I am a great one');
-    const singleLetterWords = result.filter((e) => e.word.length === 1);
-    expect(singleLetterWords).toHaveLength(0);
-    expect(result.find((e) => e.word === 'am')?.count).toBe(2);
+    const shortWords = result.filter((e) => e.word.length < 3);
+    expect(shortWords).toHaveLength(0);
+    expect(result.find((e) => e.word === 'happy')?.count).toBe(1);
+    expect(result.find((e) => e.word === 'am')).toBeUndefined();
     expect(result.find((e) => e.word === 'a')).toBeUndefined();
     expect(result.find((e) => e.word === 'i')).toBeUndefined();
   });
