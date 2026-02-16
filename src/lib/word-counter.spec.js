@@ -196,22 +196,31 @@ describe('computeWordDensity', () => {
   });
 
   it('calculates correct percentages', () => {
-    const result = computeWordDensity('a a b b b c');
-    // total = 6 words. b=3 (50%), a=2 (33.3%), c=1 (16.7%)
-    const bEntry = result.find((e) => e.word === 'b');
-    expect(bEntry?.percentage).toBe(50);
+    const result = computeWordDensity('foo foo bar bar bar baz');
+    // total = 6 words. bar=3 (50%), foo=2 (33.3%), baz=1 (16.7%)
+    const barEntry = result.find((e) => e.word === 'bar');
+    expect(barEntry?.percentage).toBe(50);
 
-    const aEntry = result.find((e) => e.word === 'a');
-    expect(aEntry?.percentage).toBe(33.3);
+    const fooEntry = result.find((e) => e.word === 'foo');
+    expect(fooEntry?.percentage).toBe(33.3);
 
-    const cEntry = result.find((e) => e.word === 'c');
-    expect(cEntry?.percentage).toBe(16.7);
+    const bazEntry = result.find((e) => e.word === 'baz');
+    expect(bazEntry?.percentage).toBe(16.7);
   });
 
   it('respects the limit parameter', () => {
-    const text = 'a b c d e f g h i j k l m n o';
+    const text = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo';
     const result = computeWordDensity(text, 5);
     expect(result).toHaveLength(5);
+  });
+
+  it('excludes single-letter words from density results', () => {
+    const result = computeWordDensity('I am a happy person and I am a great one');
+    const singleLetterWords = result.filter((e) => e.word.length === 1);
+    expect(singleLetterWords).toHaveLength(0);
+    expect(result.find((e) => e.word === 'am')?.count).toBe(2);
+    expect(result.find((e) => e.word === 'a')).toBeUndefined();
+    expect(result.find((e) => e.word === 'i')).toBeUndefined();
   });
 
   it('handles text with only punctuation', () => {
