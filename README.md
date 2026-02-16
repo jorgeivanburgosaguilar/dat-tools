@@ -1,6 +1,6 @@
-# DAT Tools
+# Data Annotation Tech Tools (DAT Tools)
 
-A collection of privacy-first, client-side browser utilities for developers. All processing happens entirely in your browser — your data never leaves your machine.
+A collection of privacy-first, client-side browser utilities for annotators. All processing happens entirely in your browser — your data never leaves your machine.
 
 Ideal for teams working under strict NDAs or handling sensitive information.
 
@@ -12,18 +12,18 @@ Ideal for teams working under strict NDAs or handling sensitive information.
 
 ## Tools
 
-| Tool | Description | Status |
-| ------ | ------------- | -------- |
-| Stopwatch | Clean, ad-free timer | Available |
-| JSON Parser/Validator | Parse and validate JSON | Planned |
-| Code/Text Diff | Compare text side-by-side | Planned |
-| Word Counter | Count words and characters | Planned |
+| Tool                  | Description                | Status    |
+| --------------------- | -------------------------- | --------- |
+| Stopwatch             | Clean, ad-free timer       | Available |
+| JSON Parser/Validator | Parse and validate JSON    | Planned   |
+| Code/Text Diff        | Compare text side-by-side  | Planned   |
+| Word Counter          | Count words and characters | Available |
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js v18+
+- Node.js v24+
 - pnpm (recommended) or npm
 
 ### Development
@@ -38,7 +38,7 @@ pnpm dev
 ### Docker
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ## Contributing
