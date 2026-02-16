@@ -93,10 +93,10 @@ export function computeStats(str) {
  * Compute word density — frequency of each word sorted by count descending.
  * Words are lowercased and stripped of leading/trailing punctuation.
  * @param {string} str
- * @param {number} [limit=20] - Maximum number of entries to return
+ * @param {number} [limit=10] - Maximum number of entries to return
  * @returns {WordDensityEntry[]}
  */
-export function computeWordDensity(str, limit = 20) {
+export function computeWordDensity(str, limit = 10) {
   const trimmed = str.trim();
   if (trimmed === '') return [];
 
@@ -105,7 +105,7 @@ export function computeWordDensity(str, limit = 20) {
   /** @type {Map<string, number>} */
   const freq = new Map();
   for (const word of words) {
-    if (word === '') continue;
+    if (word === '' || word.length === 1) continue;
     freq.set(word, (freq.get(word) || 0) + 1);
   }
 
