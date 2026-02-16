@@ -46,7 +46,7 @@
 
 <div class="w-full">
   <!-- Stats Grid -->
-  <div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+  <div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
     <div
       class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center dark:border-gray-700 dark:bg-gray-800"
     >
@@ -66,6 +66,14 @@
     <div
       class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center dark:border-gray-700 dark:bg-gray-800"
     >
+      <p class="font-mono text-3xl font-bold text-teal-600 tabular-nums dark:text-teal-400">
+        {charactersNoSpaces}
+      </p>
+      <p class="mt-1 text-sm font-medium text-gray-500 dark:text-gray-400">No Spaces</p>
+    </div>
+    <div
+      class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center dark:border-gray-700 dark:bg-gray-800"
+    >
       <p class="font-mono text-3xl font-bold text-yellow-600 tabular-nums dark:text-yellow-400">
         {sentences}
       </p>
@@ -79,15 +87,6 @@
       </p>
       <p class="mt-1 text-sm font-medium text-gray-500 dark:text-gray-400">Paragraphs</p>
     </div>
-  </div>
-
-  <!-- Character count without spaces -->
-  <div class="mb-4 text-center">
-    <span class="text-sm text-gray-500 dark:text-gray-400">
-      Characters (no spaces): <span class="font-mono font-semibold tabular-nums"
-        >{charactersNoSpaces}</span
-      >
-    </span>
   </div>
 
   <!-- Textarea -->
