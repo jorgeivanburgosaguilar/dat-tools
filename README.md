@@ -18,6 +18,7 @@ Ideal for teams working under strict NDAs or handling sensitive information.
 | JSON Parser/Validator | Parse and validate JSON    | Planned   |
 | Code/Text Diff        | Compare text side-by-side  | Planned   |
 | Word Counter          | Count words and characters | Available |
+| Markdown Preview      | Write and preview markdown | Available |
 
 ## Getting Started
 
