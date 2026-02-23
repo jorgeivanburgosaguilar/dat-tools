@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-  <title>Tools</title>
+  <title>DAT Tools</title>
 </svelte:head>
 
 <main class="mt-8 flex flex-col items-center justify-center bg-white p-4 dark:bg-gray-900">
@@ -41,6 +41,19 @@
           Word Counter
         </h2>
         <p class="text-sm text-gray-600 dark:text-gray-400">Count words, characters and more</p>
+      </a>
+
+      <a
+        href={resolve('/markdown-preview')}
+        class="group rounded-2xl border border-gray-200 bg-gray-50 p-6 transition-all hover:border-blue-400 hover:shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500"
+      >
+        <div class="mb-3 text-4xl">&#x1F4C4;</div>
+        <h2
+          class="mb-2 font-mono text-xl font-bold text-gray-900 group-hover:text-blue-600 dark:text-gray-100 dark:group-hover:text-blue-400"
+        >
+          Markdown Preview
+        </h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400">Write and preview markdown live</p>
       </a>
     </div>
   </div>
