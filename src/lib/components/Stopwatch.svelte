@@ -5,6 +5,8 @@
    * Uses callback props for parent communication (Svelte 5 pattern)
    */
 
+  import { untrack } from 'svelte';
+
   /**
    * @typedef {Object} StopwatchStartDetail
    * @property {number} elapsedTime - Elapsed time in milliseconds
@@ -42,10 +44,22 @@
   let elapsedTime = $state(0);
   let startTime = $state(0);
   let sessionStartTime = $state(0);
-  /** @type {NodeJS.Timeout | null} */
-  let intervalId = $state(null);
-  /** @type {NodeJS.Timeout | null} */
-  let tickIntervalId = $state(null);
+
+  $effect(() => {
+    if (!isRunning) return;
+
+    const interval = setInterval(() => {
+      untrack(() => {
+        elapsedTime = Date.now() - startTime;
+        const totalSeconds = Math.floor(elapsedTime / 1000);
+        if (totalSeconds > 0 && totalSeconds % 5 === 0) {
+          ontick({ elapsedTime });
+        }
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  });
 
   /**
    * Format time without milliseconds
@@ -78,17 +92,9 @@
       }
       // else: resuming from pause, keep sessionStartTime
 
-      isRunning = true;
-      isPaused = false;
       startTime = Date.now() - elapsedTime;
-      intervalId = setInterval(() => {
-        elapsedTime = Date.now() - startTime;
-      }, 1000);
-
-      // Start 5-second tick interval for title updates
-      tickIntervalId = setInterval(() => {
-        ontick({ elapsedTime });
-      }, 5000);
+      isRunning = true; // triggers $effect to set up interval
+      isPaused = false;
 
       // Call parent callback
       onstart({ elapsedTime });
@@ -100,16 +106,8 @@
    */
   function pause() {
     if (isRunning) {
-      isRunning = false;
+      isRunning = false; // triggers $effect teardown → clearInterval
       isPaused = true;
-      if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
-      }
-      if (tickIntervalId) {
-        clearInterval(tickIntervalId);
-        tickIntervalId = null;
-      }
 
       // Call parent callback
       onpause({ elapsedTime });
@@ -120,16 +118,8 @@
    * Stop the stopwatch and call parent callback with timing data
    */
   function stop() {
-    isRunning = false;
+    isRunning = false; // triggers $effect teardown → clearInterval
     isPaused = false;
-    if (intervalId) {
-      clearInterval(intervalId);
-      intervalId = null;
-    }
-    if (tickIntervalId) {
-      clearInterval(tickIntervalId);
-      tickIntervalId = null;
-    }
 
     const endTimestamp = Date.now();
 

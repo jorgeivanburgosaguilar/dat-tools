@@ -1,8 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Stopwatch from './Stopwatch.svelte';
 
 describe('Stopwatch', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('renders initial time display as 00:00:00', async () => {
     const screen = render(Stopwatch);
     await expect.element(screen.getByText('00:00:00')).toBeVisible();
@@ -85,5 +89,36 @@ describe('Stopwatch', () => {
     const screen = render(Stopwatch, { onstop });
     await screen.getByRole('button', { name: 'Stop' }).click();
     expect(onstop).not.toHaveBeenCalled();
+  });
+
+  it('calls ontick at 5-second intervals', async () => {
+    vi.useFakeTimers();
+    const ontick = vi.fn();
+    const screen = render(Stopwatch, { ontick });
+    await screen.getByRole('button', { name: 'Start' }).click();
+
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(ontick).toHaveBeenCalledTimes(1);
+    expect(ontick).toHaveBeenCalledWith(
+      expect.objectContaining({ elapsedTime: expect.any(Number) })
+    );
+
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(ontick).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops interval after component unmount', async () => {
+    vi.useFakeTimers();
+    const ontick = vi.fn();
+    const screen = render(Stopwatch, { ontick });
+    await screen.getByRole('button', { name: 'Start' }).click();
+
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(ontick).toHaveBeenCalledTimes(1);
+
+    screen.unmount();
+
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(ontick).toHaveBeenCalledTimes(1); // no additional calls after unmount
   });
 });

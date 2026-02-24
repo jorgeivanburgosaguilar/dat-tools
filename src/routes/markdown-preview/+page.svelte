@@ -1,7 +1,7 @@
 <script>
-  import { resolve } from '$app/paths'
-  import MarkdownPreview from '$lib/components/MarkdownPreview.svelte'
-  import { DEFAULT_CONTENT } from '$lib/markdown-preview.js'
+  import { resolve } from '$app/paths';
+  import MarkdownPreview from '$lib/components/MarkdownPreview.svelte';
+  import { DEFAULT_CONTENT } from '$lib/markdown-preview.js';
 </script>
 
 <svelte:head>
