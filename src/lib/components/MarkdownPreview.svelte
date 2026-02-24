@@ -217,9 +217,9 @@
             >Preview</span
           >
         </div>
-        <div bind:this={previewScrollEl} class="flex-1 overflow-y-auto px-8 py-6">
+        <div bind:this={previewScrollEl} class="flex-1 overflow-y-auto">
           <!-- renderedHtml is sanitized by DOMPurify inside renderMarkdown before being passed here -->
-          <div class="markdown-body">{@html renderedHtml}</div>
+          <div class="markdown-body p-4">{@html renderedHtml}</div>
         </div>
       </div>
     {/if}
