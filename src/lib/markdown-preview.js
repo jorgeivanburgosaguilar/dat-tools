@@ -1,4 +1,4 @@
-import { marked } from 'marked'
+import { marked } from 'marked';
 
 // Inline SVG data URI — no network request, renders entirely in the browser.
 const EXAMPLE_IMAGE_SRC = `data:image/svg+xml,${encodeURIComponent(
@@ -10,7 +10,7 @@ const EXAMPLE_IMAGE_SRC = `data:image/svg+xml,${encodeURIComponent(
     `<polygon points="450,140 570,65 690,140" fill="#9ca3af"/>` +
     `<circle cx="80" cy="42" r="24" fill="#fde68a"/>` +
     `</svg>`
-)}`
+)}`;
 
 export const DEFAULT_CONTENT = `# Markdown Preview
 
@@ -123,7 +123,7 @@ Keyboard shortcuts: <kbd>Ctrl</kbd> + <kbd>S</kbd> to save, <kbd>Ctrl</kbd> + <k
 ---
 
 *Clear this content and start writing — your work stays private.*
-`
+`;
 
 /**
  * Returns a data-line attribute string for a token.
@@ -132,7 +132,7 @@ Keyboard shortcuts: <kbd>Ctrl</kbd> + <kbd>S</kbd> to save, <kbd>Ctrl</kbd> + <k
  * @returns {string}
  */
 function dataLine(token) {
-  return `data-line="${token._lineStart ?? ''}"`
+  return `data-line="${token._lineStart ?? ''}"`;
 }
 
 // One-time renderer setup: block elements get a data-line attribute so the
@@ -142,50 +142,50 @@ function dataLine(token) {
 marked.use({
   renderer: {
     heading(token) {
-      const text = this.parser.parseInline(token.tokens)
-      return `<h${token.depth} ${dataLine(token)}>${text}</h${token.depth}>\n`
+      const text = this.parser.parseInline(token.tokens);
+      return `<h${token.depth} ${dataLine(token)}>${text}</h${token.depth}>\n`;
     },
     paragraph(token) {
-      const text = this.parser.parseInline(token.tokens)
-      return `<p ${dataLine(token)}>${text}</p>\n`
+      const text = this.parser.parseInline(token.tokens);
+      return `<p ${dataLine(token)}>${text}</p>\n`;
     },
     code(token) {
-      const lang = token.lang ? ` class="language-${token.lang}"` : ''
-      return `<pre ${dataLine(token)}><code${lang}>${token.text}</code></pre>\n`
+      const lang = token.lang ? ` class="language-${token.lang}"` : '';
+      return `<pre ${dataLine(token)}><code${lang}>${token.text}</code></pre>\n`;
     },
     blockquote(token) {
-      const body = this.parser.parse(token.tokens)
-      return `<blockquote ${dataLine(token)}>\n${body}</blockquote>\n`
+      const body = this.parser.parse(token.tokens);
+      return `<blockquote ${dataLine(token)}>\n${body}</blockquote>\n`;
     },
     table(token) {
       const headerCells = token.header
         .map((cell, i) => {
-          const align = token.align[i] ? ` align="${token.align[i]}"` : ''
-          return `<th${align}>${this.parser.parseInline(cell.tokens)}</th>`
+          const align = token.align[i] ? ` align="${token.align[i]}"` : '';
+          return `<th${align}>${this.parser.parseInline(cell.tokens)}</th>`;
         })
-        .join('')
+        .join('');
       const rows = token.rows
         .map((row) => {
           const cells = row
             .map((cell, i) => {
-              const align = token.align[i] ? ` align="${token.align[i]}"` : ''
-              return `<td${align}>${this.parser.parseInline(cell.tokens)}</td>`
+              const align = token.align[i] ? ` align="${token.align[i]}"` : '';
+              return `<td${align}>${this.parser.parseInline(cell.tokens)}</td>`;
             })
-            .join('')
-          return `<tr>${cells}</tr>`
+            .join('');
+          return `<tr>${cells}</tr>`;
         })
-        .join('\n')
+        .join('\n');
       return (
         `<table ${dataLine(token)}>` +
         `<thead><tr>${headerCells}</tr></thead>` +
         `<tbody>\n${rows}\n</tbody></table>\n`
-      )
+      );
     },
     hr(token) {
-      return `<hr ${dataLine(token)}>\n`
+      return `<hr ${dataLine(token)}>\n`;
     }
   }
-})
+});
 
 /**
  * Parse markdown to sanitized HTML. DOMPurify is loaded dynamically (browser only)
@@ -199,13 +199,13 @@ marked.use({
  * @returns {string}
  */
 export function renderMarkdown(markdown, purify) {
-  const tokens = marked.lexer(markdown)
-  let line = 1
+  const tokens = marked.lexer(markdown);
+  let line = 1;
   for (const token of tokens) {
-    /** @type {any} */ (token)._lineStart = line
-    line += (token.raw.match(/\n/g) ?? []).length
+    /** @type {any} */ (token)._lineStart = line;
+    line += (token.raw.match(/\n/g) ?? []).length;
   }
-  const raw = /** @type {string} */ (marked.parser(tokens))
+  const raw = /** @type {string} */ (marked.parser(tokens));
   // ADD_ATTR ensures data-line survives DOMPurify sanitization
-  return purify ? purify.sanitize(raw, { ADD_ATTR: ['data-line'] }) : raw
+  return purify ? purify.sanitize(raw, { ADD_ATTR: ['data-line'] }) : raw;
 }
