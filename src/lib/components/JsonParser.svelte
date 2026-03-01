@@ -1,6 +1,6 @@
 <script>
   import { untrack } from 'svelte';
-  import { parseJson, countJsonStats, DEFAULT_CONTENT } from '$lib/json-parser.js';
+  import { parseJson, countJsonStats, highlightJson, DEFAULT_CONTENT } from '$lib/json-parser.js';
 
   /**
    * @typedef {Object} JsonParserProps
@@ -18,20 +18,32 @@
   /** @type {'horizontal' | 'vertical'} */
   let layout = $state('horizontal');
 
-  /** @type {'' | 'formatted' | 'minified'} */
-  let copied = $state('');
+  let copied = $state(false);
 
   /** @type {HTMLTextAreaElement | null} */
   let textareaEl = $state(null);
   /** @type {HTMLDivElement | null} */
   let gutterEl = $state(null);
 
+  let focused = $state(false);
+  let cursorLine = $state(1);
+  let cursorCol = $state(1);
+
   let parseResult = $derived(parseJson(input));
+  let highlightedOutput = $derived(parseResult.success ? highlightJson(parseResult.formatted) : '');
   let stats = $derived(countJsonStats(input));
   let lineCount = $derived(stats.lines || 1);
 
   function syncGutter() {
     if (gutterEl && textareaEl) gutterEl.scrollTop = textareaEl.scrollTop;
+  }
+
+  function updateCursor() {
+    if (!textareaEl) return;
+    const pos = textareaEl.selectionStart;
+    const before = input.slice(0, pos);
+    cursorLine = (before.match(/\n/g) ?? []).length + 1;
+    cursorCol = pos - before.lastIndexOf('\n');
   }
 
   function loadSample() {
@@ -44,22 +56,21 @@
     }
   }
 
+  function minifyJson() {
+    if (parseResult.success) {
+      input = parseResult.minified;
+    }
+  }
+
   function clear() {
     input = '';
   }
 
-  async function copyFormatted() {
-    if (!parseResult.success) return;
-    await navigator.clipboard.writeText(parseResult.formatted);
-    copied = 'formatted';
-    setTimeout(() => (copied = ''), 1500);
-  }
-
-  async function copyMinified() {
-    if (!parseResult.success) return;
-    await navigator.clipboard.writeText(parseResult.minified);
-    copied = 'minified';
-    setTimeout(() => (copied = ''), 1500);
+  async function copyInput() {
+    if (!input) return;
+    await navigator.clipboard.writeText(input);
+    copied = true;
+    setTimeout(() => (copied = false), 1500);
   }
 </script>
 
@@ -113,12 +124,6 @@
     <!-- Actions -->
     <div class="ml-auto flex items-center gap-1">
       <button
-        onclick={loadSample}
-        class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
-      >
-        Sample
-      </button>
-      <button
         onclick={formatJson}
         disabled={!parseResult.success}
         class="rounded px-2 py-1 text-xs font-medium transition-colors {parseResult.success
@@ -128,28 +133,34 @@
         Format
       </button>
       <button
+        onclick={minifyJson}
+        disabled={!parseResult.success}
+        class="rounded px-2 py-1 text-xs font-medium transition-colors {parseResult.success
+          ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
+          : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
+      >
+        Minify
+      </button>
+      <button
+        onclick={copyInput}
+        disabled={!input}
+        class="rounded px-2 py-1 text-xs font-medium transition-colors {input
+          ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
+          : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
+      >
+        {copied ? '✓ Copied' : 'Copy'}
+      </button>
+      <button
+        onclick={loadSample}
+        class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+      >
+        Sample
+      </button>
+      <button
         onclick={clear}
         class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
       >
         Clear
-      </button>
-      <button
-        onclick={copyFormatted}
-        disabled={!parseResult.success}
-        class="rounded px-2 py-1 text-xs font-medium transition-colors {parseResult.success
-          ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
-          : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
-      >
-        {copied === 'formatted' ? '✓ Copied' : 'Copy Formatted'}
-      </button>
-      <button
-        onclick={copyMinified}
-        disabled={!parseResult.success}
-        class="rounded px-2 py-1 text-xs font-medium transition-colors {parseResult.success
-          ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
-          : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
-      >
-        {copied === 'minified' ? '✓ Copied' : 'Copy Minified'}
       </button>
     </div>
   </div>
@@ -166,11 +177,31 @@
             : 'w-1/2 border-r border-gray-200 dark:border-gray-700'
           : 'w-full'}"
       >
-        <div class="border-b border-gray-200 px-3 py-2 dark:border-gray-700">
+        <div
+          class="flex items-center justify-between border-b border-gray-200 px-3 py-2 dark:border-gray-700"
+        >
           <span
             class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
             >Input</span
           >
+          <div class="flex items-center gap-3">
+            {#if focused}
+              <span class="inline-flex items-center text-xs text-gray-400 dark:text-gray-500"
+                >Ln {cursorLine}, Col {cursorCol}</span
+              >
+            {/if}
+            {#if input.trim()}
+              <span class="flex items-center gap-1 text-xs font-medium">
+                {#if parseResult.success}
+                  <span class="inline-block h-2 w-2 rounded-full bg-green-500"></span>
+                  <span class="text-green-600 dark:text-green-400">Valid</span>
+                {:else}
+                  <span class="inline-block h-2 w-2 rounded-full bg-red-500"></span>
+                  <span class="text-red-600 dark:text-red-400">Invalid</span>
+                {/if}
+              </span>
+            {/if}
+          </div>
         </div>
         <div class="flex min-h-0 flex-1 overflow-hidden bg-gray-900">
           <!-- gutter -->
@@ -188,6 +219,10 @@
             bind:this={textareaEl}
             bind:value={input}
             onscroll={syncGutter}
+            onfocus={() => { focused = true; updateCursor(); }}
+            onblur={() => { focused = false; }}
+            onkeyup={updateCursor}
+            onclick={updateCursor}
             class="flex-1 resize-none bg-transparent py-4 pr-4 font-mono text-sm leading-5 text-gray-100 outline-none placeholder:text-gray-500"
             placeholder="Paste your JSON here..."
           ></textarea>
@@ -203,7 +238,7 @@
             : 'w-1/2'
           : 'w-full'}"
       >
-        <div class="border-b border-gray-200 px-3 py-2 dark:border-gray-700">
+        <div class="flex items-center border-b border-gray-200 px-3 py-2 dark:border-gray-700">
           <span
             class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
             >Output</span
@@ -216,7 +251,7 @@
             </p>
           {:else if parseResult.success}
             <pre class="text-sm break-words whitespace-pre-wrap"><code
-                class="font-mono text-gray-100">{parseResult.formatted}</code
+                class="font-mono text-gray-100">{@html highlightedOutput}</code
               ></pre>
           {:else}
             <div
@@ -242,18 +277,6 @@
   <div
     class="flex items-center gap-3 border-t border-gray-200 px-4 py-1.5 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400"
   >
-    {#if input.trim()}
-      <span class="flex items-center gap-1">
-        {#if parseResult.success}
-          <span class="inline-block h-2 w-2 rounded-full bg-green-500"></span>
-          Valid
-        {:else}
-          <span class="inline-block h-2 w-2 rounded-full bg-red-500"></span>
-          Invalid
-        {/if}
-      </span>
-      <span class="text-gray-300 dark:text-gray-600">|</span>
-    {/if}
     {stats.lines} lines · {stats.chars} characters
   </div>
 </div>

@@ -31,14 +31,14 @@
       </a>
 
       <a
-        href={resolve('/json-parser')}
+        href={resolve('/json-validator')}
         class="group rounded-2xl border border-gray-200 bg-gray-50 p-6 transition-all hover:border-blue-400 hover:shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500"
       >
         <div class="mb-3 text-4xl">&#x7B;&#x7D;</div>
         <h2
           class="mb-2 font-mono text-xl font-bold text-gray-900 group-hover:text-blue-600 dark:text-gray-100 dark:group-hover:text-blue-400"
         >
-          JSON Parser
+          JSON Validator
         </h2>
         <p class="text-sm text-gray-600 dark:text-gray-400">Parse and validate JSON</p>
       </a>

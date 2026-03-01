@@ -143,3 +143,27 @@ export function countJsonStats(input) {
     chars: input.length
   };
 }
+
+/** @param {string} str */
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Return an HTML string with JSON keys wrapped in <span class="json-key">.
+ * String token content is HTML-escaped to prevent XSS.
+ * Values inherit the parent element's text color.
+ * @param {string} formatted — output of JSON.stringify(data, null, 2)
+ * @returns {string}
+ */
+export function highlightJson(formatted) {
+  return formatted.replace(
+    /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*")(\s*:)?/g,
+    (match, string, colon) => {
+      if (colon !== undefined) {
+        return `<span class="json-key">${escapeHtml(string)}</span>${colon}`;
+      }
+      return escapeHtml(string);
+    }
+  );
+}

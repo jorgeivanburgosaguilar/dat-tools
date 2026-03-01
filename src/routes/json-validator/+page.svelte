@@ -5,7 +5,7 @@
 </script>
 
 <svelte:head>
-  <title>JSON Parser</title>
+  <title>JSON Validator</title>
 </svelte:head>
 
 <main class="flex h-screen flex-col overflow-hidden bg-white dark:bg-gray-900">
@@ -19,7 +19,7 @@
       &larr; Back to Tools
     </a>
     <h1 class="font-mono text-lg font-bold tracking-tight text-gray-900 dark:text-gray-100">
-      JSON Parser
+      JSON Validator
     </h1>
     <span class="ml-auto font-mono text-xs text-gray-400 dark:text-gray-500">
       {__APP_VERSION__}

@@ -1,3 +1,7 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @variant dark (&:where(.dark, .dark *));
+
+.json-key {
+  color: theme('colors.green.400');
+}
