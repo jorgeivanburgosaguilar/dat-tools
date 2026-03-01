@@ -150,20 +150,63 @@ function escapeHtml(str) {
 }
 
 /**
- * Return an HTML string with JSON keys wrapped in <span class="json-key">.
- * String token content is HTML-escaped to prevent XSS.
- * Values inherit the parent element's text color.
+ * Return an HTML string with JSON keys, brackets, and braces wrapped in colored spans.
+ * Uses a single-pass character-level tokenizer so structural characters inside string
+ * values are never incorrectly highlighted. String content is HTML-escaped for XSS safety.
  * @param {string} formatted — output of JSON.stringify(data, null, 2)
  * @returns {string}
  */
 export function highlightJson(formatted) {
-  return formatted.replace(
-    /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*")(\s*:)?/g,
-    (match, string, colon) => {
-      if (colon !== undefined) {
-        return `<span class="json-key">${escapeHtml(string)}</span>${colon}`;
+  let result = '';
+  let i = 0;
+  const len = formatted.length;
+
+  while (i < len) {
+    const ch = formatted[i];
+
+    if (ch === '"') {
+      // Scan the full string token, respecting escape sequences
+      let str = '"';
+      i++;
+      while (i < len) {
+        const c = formatted[i];
+        str += c;
+        i++;
+        if (c === '\\' && i < len) {
+          str += formatted[i];
+          i++;
+        } else if (c === '"') {
+          break;
+        }
       }
-      return escapeHtml(string);
+      // Look ahead past spaces for ':' to identify keys
+      let j = i;
+      while (j < len && formatted[j] === ' ') j++;
+      if (formatted[j] === ':') {
+        result += `<span class="json-key">${escapeHtml(str)}</span>`;
+      } else {
+        result += escapeHtml(str);
+      }
+    } else if (ch === '[' || ch === ']') {
+      result += `<span class="json-bracket">${ch}</span>`;
+      i++;
+    } else if (ch === '{' || ch === '}') {
+      result += `<span class="json-brace">${ch}</span>`;
+      i++;
+    } else if (ch === '&') {
+      result += '&amp;';
+      i++;
+    } else if (ch === '<') {
+      result += '&lt;';
+      i++;
+    } else if (ch === '>') {
+      result += '&gt;';
+      i++;
+    } else {
+      result += ch;
+      i++;
     }
-  );
+  }
+
+  return result;
 }

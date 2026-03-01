@@ -5,3 +5,17 @@
 .json-key {
   color: theme('colors.green.400');
 }
+
+.json-bracket {
+  color: theme('colors.red.600');
+  @variant dark {
+    color: theme('colors.yellow.400');
+  }
+}
+
+.json-brace {
+  color: theme('colors.blue.800');
+  @variant dark {
+    color: theme('colors.blue.400');
+  }
+}
