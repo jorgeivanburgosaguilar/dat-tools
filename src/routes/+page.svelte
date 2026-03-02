@@ -40,7 +40,9 @@
         >
           Word Counter
         </h2>
-        <p class="text-sm text-gray-600 dark:text-gray-400">Count words, characters and whitespace</p>
+        <p class="text-sm text-gray-600 dark:text-gray-400">
+          Count words, characters and whitespace
+        </p>
       </a>
 
       <a
@@ -53,7 +55,9 @@
         >
           Markdown Preview
         </h2>
-        <p class="text-sm text-gray-600 dark:text-gray-400">Write and preview markdown in real time</p>
+        <p class="text-sm text-gray-600 dark:text-gray-400">
+          Write and preview markdown in real time
+        </p>
       </a>
 
       <a
