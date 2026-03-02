@@ -42,7 +42,7 @@ COPY --from=builder /app/build /usr/share/nginx/html
 # COPY nginx.conf /etc/nginx/nginx.conf
 
 # Expose port 80 (standard HTTP)
-EXPOSE 8080
+EXPOSE 80
 
 # nginx runs in foreground by default in this image
 CMD ["nginx", "-g", "daemon off;"]
