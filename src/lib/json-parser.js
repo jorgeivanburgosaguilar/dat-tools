@@ -132,10 +132,19 @@ export function parseJson(input) {
       minified: JSON.stringify(data)
     };
   }
-  const errors = parseErrors.slice(0, 10).map((e) => {
-    const { line, column } = positionToLineColumn(input, e.offset);
-    return { message: friendlyMessage(input, e), line, column };
-  });
+  const seen = new Set();
+  const errors = parseErrors
+    .slice(0, 10)
+    .map((e) => {
+      const { line, column } = positionToLineColumn(input, e.offset);
+      return { message: friendlyMessage(input, e), line, column };
+    })
+    .filter((e) => {
+      const key = `${e.line}:${e.column}:${e.message}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   return { success: false, errors };
 }
 
