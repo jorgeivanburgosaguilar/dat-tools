@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Stopwatch from './Stopwatch.svelte';
+import { clearAllRecords } from '$lib/stopwatch-db';
 
 describe('Stopwatch', () => {
-  afterEach(() => {
+  afterEach(async () => {
     vi.useRealTimers();
+    await clearAllRecords();
   });
 
   it('renders initial time display as 00:00:00', async () => {
@@ -120,5 +122,80 @@ describe('Stopwatch', () => {
 
     await vi.advanceTimersByTimeAsync(10000);
     expect(ontick).toHaveBeenCalledTimes(1); // no additional calls after unmount
+  });
+
+  describe('Records', () => {
+    it('renders "No records yet" on initial mount', async () => {
+      const screen = render(Stopwatch);
+      await expect.element(screen.getByText('No records yet')).toBeVisible();
+    });
+
+    it('shows a record entry after starting and stopping', async () => {
+      const screen = render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await screen.getByRole('button', { name: 'Stop' }).click();
+      await expect.element(screen.getByText(/Duration:/)).toBeVisible();
+    });
+
+    it('does not show a duplicate record if stopped twice without restarting', async () => {
+      const screen = render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await screen.getByRole('button', { name: 'Stop' }).click();
+      await expect.element(screen.getByText(/Duration:/)).toBeVisible();
+      // Stop again without restarting — sessionStartTime is 0, so no save occurs
+      await screen.getByRole('button', { name: 'Stop' }).click();
+      expect(screen.getByText(/Duration:/).all()).toHaveLength(1);
+    });
+
+    it('shows "Clear All Records" button only when records exist', async () => {
+      const screen = render(Stopwatch);
+      await expect
+        .element(screen.getByRole('button', { name: 'Clear All Records' }))
+        .not.toBeInTheDocument();
+
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await screen.getByRole('button', { name: 'Stop' }).click();
+      await expect.element(screen.getByRole('button', { name: 'Clear All Records' })).toBeVisible();
+    });
+
+    it('clicking "Clear All Records" opens the confirmation modal', async () => {
+      const screen = render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await screen.getByRole('button', { name: 'Stop' }).click();
+      await screen.getByRole('button', { name: 'Clear All Records' }).click();
+      await expect
+        .element(screen.getByText('Are you sure you want to clear all records?'))
+        .toBeVisible();
+    });
+
+    it('clicking Cancel closes the modal without clearing records', async () => {
+      const screen = render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await screen.getByRole('button', { name: 'Stop' }).click();
+      await expect.element(screen.getByText(/Duration:/)).toBeVisible();
+      await screen.getByRole('button', { name: 'Clear All Records' }).click();
+      await screen.getByRole('button', { name: 'Cancel' }).click();
+      await expect
+        .element(screen.getByText('Are you sure you want to clear all records?'))
+        .not.toBeInTheDocument();
+      await expect.element(screen.getByText(/Duration:/)).toBeVisible();
+    });
+
+    it('clicking confirm in the modal clears records and shows "No records yet"', async () => {
+      const screen = render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await screen.getByRole('button', { name: 'Stop' }).click();
+      await expect.element(screen.getByText(/Duration:/)).toBeVisible();
+      await screen.getByRole('button', { name: 'Clear All Records' }).click();
+      // Click the modal's "Clear All" confirm button (exact to avoid matching "Clear All Records")
+      await screen.getByRole('button', { name: 'Clear All', exact: true }).click();
+      await expect.element(screen.getByText('No records yet')).toBeVisible();
+    });
   });
 });
