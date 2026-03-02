@@ -1,6 +1,7 @@
 <script>
   import { untrack } from 'svelte';
-  import { parseJson, countJsonStats, highlightJson, DEFAULT_CONTENT } from '$lib/json-parser.js';
+  import { parseJson, countJsonStats, DEFAULT_CONTENT } from '$lib/json-parser.js';
+  import JsonNode from '$lib/components/JsonNode.svelte';
 
   /**
    * @typedef {Object} JsonParserProps
@@ -30,7 +31,6 @@
   let cursorCol = $state(1);
 
   let parseResult = $derived(parseJson(input));
-  let highlightedOutput = $derived(parseResult.success ? highlightJson(parseResult.formatted) : '');
   let stats = $derived(countJsonStats(input));
   let lineCount = $derived(stats.lines || 1);
   let lineNumbers = $derived(Array.from({ length: lineCount }, (_, i) => i + 1));
@@ -204,12 +204,12 @@
             {/if}
           </div>
         </div>
-        <div class="flex min-h-0 flex-1 overflow-hidden bg-gray-900">
+        <div class="flex min-h-0 flex-1 overflow-hidden bg-white dark:bg-gray-900">
           <!-- gutter -->
           <div
             bind:this={gutterEl}
             aria-hidden="true"
-            class="overflow-hidden py-4 pr-2 pl-3 font-mono text-sm leading-5 text-gray-600 select-none"
+            class="overflow-hidden py-4 pr-2 pl-3 font-mono text-sm leading-5 text-gray-400 select-none dark:text-gray-500"
           >
             {#each lineNumbers as lineNum (lineNum)}
               <div class="text-right">{lineNum}</div>
@@ -229,7 +229,7 @@
             }}
             onkeyup={updateCursor}
             onclick={updateCursor}
-            class="flex-1 resize-none bg-transparent py-4 pr-4 font-mono text-sm leading-5 text-gray-100 outline-none placeholder:text-gray-500"
+            class="flex-1 resize-none bg-transparent py-4 pr-4 font-mono text-sm leading-5 text-gray-900 outline-none placeholder:text-gray-400 dark:text-gray-100 dark:placeholder:text-gray-500"
             placeholder="Paste your JSON here..."
           ></textarea>
         </div>
@@ -250,15 +250,15 @@
             >Output</span
           >
         </div>
-        <div class="flex-1 overflow-y-auto bg-gray-900 p-4">
+        <div class="flex-1 overflow-y-auto bg-white p-4 dark:bg-gray-900">
           {#if !input.trim()}
             <p class="text-sm text-gray-500">
               Paste JSON on the left to see the formatted output here.
             </p>
           {:else if parseResult.success}
-            <pre class="text-sm break-words whitespace-pre-wrap"><code
-                class="font-mono text-gray-100">{@html highlightedOutput}</code
-              ></pre>
+            <div class="py-0">
+              <JsonNode value={parseResult.data} depth={0} isLast={true} keyName={null} />
+            </div>
           {:else}
             <div
               class="rounded border border-red-300 bg-red-50 p-3 dark:border-red-700 dark:bg-red-900/30"

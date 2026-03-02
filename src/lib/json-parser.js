@@ -34,6 +34,7 @@ export const DEFAULT_CONTENT = `{
   "name": "dat-tools",
   "description": "Privacy-first browser utilities for developers",
   "version": "1.0.0",
+  "port": 3000,
   "features": [
     "100% client-side processing",
     "No analytics or tracking",
@@ -45,6 +46,7 @@ export const DEFAULT_CONTENT = `{
     "word-counter": { "status": "available" },
     "markdown-preview": { "status": "available" }
   },
+  "license": null,
   "private": true
 }`;
 

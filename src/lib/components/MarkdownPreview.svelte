@@ -197,7 +197,7 @@
         <textarea
           bind:this={textareaEl}
           bind:value={markdown}
-          class="flex-1 resize-none bg-gray-900 p-4 font-mono text-sm text-gray-100 outline-none placeholder:text-gray-500"
+          class="flex-1 resize-none bg-white p-4 font-mono text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
           placeholder="Type your markdown here..."
         ></textarea>
       </div>
