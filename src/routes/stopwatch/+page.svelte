@@ -1,158 +1,55 @@
 <script>
   import { onMount } from 'svelte';
   import { resolve } from '$app/paths';
-  import { initDB, saveRecord, getAllRecords, clearAllRecords } from '$lib/stopwatch-db';
+  import { formatTime } from '$lib/stopwatch-utils';
   import Stopwatch from '$lib/components/Stopwatch.svelte';
-  import RecordsList from '$lib/components/RecordsList.svelte';
 
-  /** @type {any[]} */
-  let records = $state([]);
   let originalTitle = $state('');
 
   onMount(() => {
-    // Run async initialization separately
-    (async () => {
-      await initDB();
-      await loadRecords();
-    })();
-
-    // Store the original page title
     originalTitle = document.title;
   });
 
   /**
    * Handle stopwatch start - update title immediately
-   * @param {{ elapsedTime: number }} detail - The start event detail from the stopwatch component
+   * @param {{ elapsedTime: number }} detail
    */
   function handleStopwatchStart(detail) {
     const { elapsedTime } = detail;
-
-    // Update title immediately
     if (typeof document !== 'undefined') {
-      document.title = `${formatTimeForTitle(elapsedTime)} - Stopwatch`;
+      document.title = `${formatTime(elapsedTime)} - Stopwatch`;
     }
   }
 
   /**
    * Handle stopwatch pause - update title with paused time
-   * @param {{ elapsedTime: number }} detail - The pause event detail from the stopwatch component
+   * @param {{ elapsedTime: number }} detail
    */
   function handleStopwatchPause(detail) {
     const { elapsedTime } = detail;
-
-    // Update title with paused time
     if (typeof document !== 'undefined') {
-      document.title = `${formatTimeForTitle(elapsedTime)} - Stopwatch`;
+      document.title = `${formatTime(elapsedTime)} - Stopwatch`;
     }
   }
 
   /**
    * Handle stopwatch tick - update title every 5 seconds
-   * @param {{ elapsedTime: number }} detail - The tick event detail from the stopwatch component
+   * @param {{ elapsedTime: number }} detail
    */
   function handleStopwatchTick(detail) {
     const { elapsedTime } = detail;
-
-    // Update title with current elapsed time
     if (typeof document !== 'undefined') {
-      document.title = `${formatTimeForTitle(elapsedTime)} - Stopwatch`;
+      document.title = `${formatTime(elapsedTime)} - Stopwatch`;
     }
   }
 
   /**
-   * Handle stopwatch stop - save record and reset title
-   * @param {{ elapsedTime: number, sessionStartTime: number, endTimestamp: number }} detail - The stop event detail from the stopwatch component
+   * Handle stopwatch stop - reset title to original
    */
-  async function handleStopwatchStop(detail) {
-    const { elapsedTime, sessionStartTime, endTimestamp } = detail;
-
-    // Save the record (only if there's actual time recorded and it's not a duplicate)
-    if (elapsedTime > 0 && sessionStartTime > 0) {
-      // Check if the last record has the same start timestamp (duplicate prevention)
-      const isDuplicate =
-        records.length > 0 && records[records.length - 1].startTimestamp === sessionStartTime;
-
-      if (!isDuplicate) {
-        await saveRecord(sessionStartTime, endTimestamp, elapsedTime);
-        await loadRecords();
-      }
-    }
-
-    // Reset title to original
+  function handleStopwatchStop() {
     if (originalTitle) {
       document.title = originalTitle;
     }
-  }
-
-  /**
-   * Format time for title (hh:mm:ss only)
-   * @param {number} ms - Time in milliseconds
-   * @returns {string} Formatted time string
-   */
-  function formatTimeForTitle(ms) {
-    const totalSeconds = Math.floor(ms / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  }
-
-  /**
-   * Format timestamp date as yyyy-MM-dd
-   * @param {number} timestamp - Timestamp in milliseconds
-   * @returns {string} Formatted date string
-   */
-  function formatDate(timestamp) {
-    const date = new Date(timestamp);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  /**
-   * Format timestamp time as HH:mm:ss
-   * @param {number} timestamp - Timestamp in milliseconds
-   * @returns {string} Formatted time string
-   */
-  function formatTimeOnly(timestamp) {
-    const date = new Date(timestamp);
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
-  }
-
-  /**
-   * Format elapsed time as hh:mm (with 1 minute minimum display)
-   * @param {number} minutes - Time in minutes
-   * @returns {string} Formatted elapsed time
-   */
-  function formatElapsed(minutes) {
-    // Show at least 1 minute if less than 1 minute
-    const displayMinutes = minutes < 1 ? 1 : minutes;
-    const hours = Math.floor(displayMinutes / 60);
-    const mins = displayMinutes % 60;
-    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
-  }
-
-  /**
-   * Format a record row for display in the RecordsList component
-   * @param {any} record - The record object to format
-   * @returns {string} HTML string for the record row
-   */
-  function formatRecordRow(record) {
-    return `📅 ${formatDate(record.startTimestamp)} ⏱ ${formatTimeOnly(record.startTimestamp)}-${formatTimeOnly(record.endTimestamp)} ⏳ Duration: <span class="text-blue-600 dark:text-blue-400">${formatElapsed(record.elapsedMinutes)}</span>`;
-  }
-
-  async function loadRecords() {
-    records = await getAllRecords();
-  }
-
-  async function handleClearRecords() {
-    await clearAllRecords();
-    await loadRecords();
   }
 </script>
 
@@ -180,16 +77,6 @@
       onpause={handleStopwatchPause}
       onstop={handleStopwatchStop}
       ontick={handleStopwatchTick}
-    />
-
-    <!-- Records Component -->
-    <RecordsList
-      title="Records"
-      {records}
-      clearButtonText="Clear All Records"
-      emptyMessage="No records yet"
-      formatRow={formatRecordRow}
-      onclear={handleClearRecords}
     />
 
     <div class="p-6 text-center">

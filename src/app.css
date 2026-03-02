@@ -1,3 +1,49 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @variant dark (&:where(.dark, .dark *));
+
+.json-key {
+  color: theme('colors.green.700');
+  @variant dark {
+    color: theme('colors.green.400');
+  }
+}
+
+.json-bracket {
+  color: theme('colors.red.600');
+  @variant dark {
+    color: theme('colors.yellow.400');
+  }
+}
+
+.json-brace {
+  color: theme('colors.blue.800');
+  @variant dark {
+    color: theme('colors.blue.400');
+  }
+}
+
+.json-string {
+  color: theme('colors.gray.900');
+  @variant dark {
+    color: theme('colors.white');
+  }
+}
+.json-number {
+  color: theme('colors.orange.700');
+  @variant dark {
+    color: theme('colors.orange.400');
+  }
+}
+.json-boolean {
+  color: theme('colors.blue.700');
+  @variant dark {
+    color: theme('colors.blue.400');
+  }
+}
+.json-null {
+  color: theme('colors.gray.500');
+  @variant dark {
+    color: theme('colors.gray.400');
+  }
+}

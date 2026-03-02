@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import { browser } from '$app/environment';
   import { renderMarkdown } from '$lib/markdown-preview.js';
+  import { computePreviewScrollTop, resolveLeadOffsetPx } from '$lib/preview-scroll.js';
   import 'github-markdown-css/github-markdown.css';
 
   /**
@@ -82,11 +83,22 @@
       else break;
     }
 
+    // Keep one editor line above the current section when possible.
+    const lineHeight = textareaEl ? getComputedStyle(textareaEl).lineHeight : null;
+    const leadOffsetPx = resolveLeadOffsetPx(lineHeight);
+
     // Compute the element's absolute offset within the scroll container and
-    // assign it directly (not +=) so the result is idempotent.
+    // clamp within the scroll bounds.
     const containerRect = previewScrollEl.getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
-    previewScrollEl.scrollTop = previewScrollEl.scrollTop + targetRect.top - containerRect.top;
+    previewScrollEl.scrollTop = computePreviewScrollTop({
+      currentScrollTop: previewScrollEl.scrollTop,
+      targetTop: targetRect.top,
+      containerTop: containerRect.top,
+      leadOffsetPx,
+      scrollHeight: previewScrollEl.scrollHeight,
+      clientHeight: previewScrollEl.clientHeight
+    });
   });
 
   function clear() {
@@ -197,7 +209,7 @@
         <textarea
           bind:this={textareaEl}
           bind:value={markdown}
-          class="flex-1 resize-none bg-gray-900 p-4 font-mono text-sm text-gray-100 outline-none placeholder:text-gray-500"
+          class="flex-1 resize-none bg-white p-4 font-mono text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
           placeholder="Type your markdown here..."
         ></textarea>
       </div>

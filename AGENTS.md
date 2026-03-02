@@ -13,10 +13,10 @@ A collection of privacy-first, client-side browser utilities for developers. All
 | Tool                  | Description                | Status    |
 | --------------------- | -------------------------- | --------- |
 | Stopwatch             | Clean, ad-free timer       | Available |
-| JSON Parser/Validator | Parse and validate JSON    | Planned   |
-| Code/Text Diff        | Compare text side-by-side  | Planned   |
+| JSON Parser/Validator | Parse and validate JSON    | Available |
 | Word Counter          | Count words and characters | Available |
 | Markdown Preview      | Write and preview markdown | Available |
+| Code/Text Diff        | Compare text side-by-side  | Planned   |
 
 ## General Code Style
 
@@ -32,19 +32,26 @@ A collection of privacy-first, client-side browser utilities for developers. All
 - `pnpm format` — auto-format with prettier
 - `pnpm check` — svelte-check type validation
 
+## Post-Change Checklist
+
+- After every completed change, run `pnpm format`.
+- After formatting, run `pnpm check` and `pnpm lint`.
+- `pnpm check` and `pnpm lint` must not report already known errors as part of the final state.
+- If any `.svelte` file changed, run the `svelte-autofixer` tool before presenting results.
+
 ## Type System
 
 - **JavaScript only** — this project uses `jsconfig.json` with `checkJs: true`, NOT TypeScript.
 - **All types must be expressed via JSDoc** (`@type`, `@param`, `@returns`, `@typedef`, etc.). Never create `.ts` files.
 - Use `/** @type {import('@sveltejs/kit').Config} */` style imports for framework types.
 - Keep `@param` / `@returns` annotations on all exported functions and SvelteKit handlers.
-- After finalizing code changes, run `pnpm check` to validate types before committing.
+- Follow the **Post-Change Checklist** after finalizing code changes.
 
 ## Svelte
 
 - This project uses **Svelte 5** with runes (`$state`, `$derived`, `$effect`, `$props`). Never use Svelte 4 patterns (`export let`, `$:` reactive statements, stores via `$` prefix).
 - Use the **Svelte MCP server** (`list-sections`, `get-documentation`, `svelte-autofixer`) to verify syntax when unsure about Svelte 5 APIs.
-- Always run `svelte-autofixer` on any Svelte component you write or modify before presenting it.
+- If any `.svelte` file is changed, run `svelte-autofixer` before presenting results.
 - Use `{@render children()}` for slot content, not `<slot />`.
 - Use `onclick={handler}` attribute syntax, not `on:click={handler}`.
 
