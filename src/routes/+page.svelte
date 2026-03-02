@@ -69,5 +69,11 @@
         <p class="text-sm text-gray-600 dark:text-gray-400">Parse and validate JSON instantly</p>
       </a>
     </div>
+
+    <div class="p-6 text-center">
+      <h4 class="font-mono font-bold tracking-tight text-gray-900 tabular-nums dark:text-gray-100">
+        Version {__APP_VERSION__}
+      </h4>
+    </div>
   </div>
 </main>

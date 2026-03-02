@@ -15,10 +15,10 @@ Ideal for teams working under strict NDAs or handling sensitive information.
 | Tool                  | Description                | Status    |
 | --------------------- | -------------------------- | --------- |
 | Stopwatch             | Clean, ad-free timer       | Available |
-| JSON Parser/Validator | Parse and validate JSON    | Planned   |
-| Code/Text Diff        | Compare text side-by-side  | Planned   |
+| JSON Parser/Validator | Parse and validate JSON    | Available |
 | Word Counter          | Count words and characters | Available |
 | Markdown Preview      | Write and preview markdown | Available |
+| Code/Text Diff        | Compare text side-by-side  | Planned   |
 
 ## Getting Started
 
