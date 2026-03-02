@@ -42,7 +42,7 @@ describe('parseJson', () => {
     const result = parseJson('');
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.message).toBeTruthy();
+      expect(result.errors[0].message).toBeTruthy();
     }
   });
 
@@ -50,7 +50,7 @@ describe('parseJson', () => {
     const result = parseJson('{invalid}');
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.message).toBeTruthy();
+      expect(result.errors[0].message).toBeTruthy();
     }
   });
 
@@ -74,7 +74,7 @@ describe('parseJson', () => {
     const result = parseJson(input);
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.message).toBeTruthy();
+      expect(result.errors[0].message).toBeTruthy();
     }
   });
 
@@ -86,7 +86,7 @@ describe('parseJson', () => {
     const result = parseJson(input);
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.line).toBe(12);
+      expect(result.errors[0].line).toBe(12);
     }
   });
 
@@ -109,6 +109,40 @@ describe('parseJson', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.emoji).toBe('\u2764');
+    }
+  });
+
+  it('reports trailing comma with friendly message', () => {
+    const result = parseJson('{"a": 1,}');
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.errors[0].message).toMatch(/[Tt]railing comma/);
+    }
+  });
+
+  it('reports single-quote strings with friendly message', () => {
+    const result = parseJson("{'a': 1}");
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.errors[0].message).toMatch(/double quotes/);
+    }
+  });
+
+  it('reports JS comments with friendly message', () => {
+    const result = parseJson('{ // comment\n"a": 1 }');
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.errors[0].message).toMatch(/does not support comments/);
+    }
+  });
+
+  it('reports multiple errors at once', () => {
+    // Two trailing commas — one in each nested object
+    const input = '{"a": 1,, "b": 2}';
+    const result = parseJson(input);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.errors.length).toBeGreaterThan(1);
     }
   });
 });

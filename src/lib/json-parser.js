@@ -1,3 +1,35 @@
+import { parse as jsoncParse } from 'jsonc-parser';
+
+// Numeric values of jsonc-parser's ParseErrorCode const enum.
+// Imported as plain numbers to avoid 'ambient const enum' errors with verbatimModuleSyntax.
+const ParseErrorCode = /** @type {const} */ ({
+  InvalidSymbol: 1,
+  InvalidNumberFormat: 2,
+  PropertyNameExpected: 3,
+  ValueExpected: 4,
+  ColonExpected: 5,
+  CommaExpected: 6,
+  CloseBraceExpected: 7,
+  CloseBracketExpected: 8,
+  EndOfFileExpected: 9,
+  InvalidCommentToken: 10,
+  InvalidCharacter: 16
+});
+
+/**
+ * Convert a character offset in a string to a 1-based line and column.
+ * @param {string} input
+ * @param {number} offset
+ * @returns {{ line: number, column: number }}
+ */
+function positionToLineColumn(input, offset) {
+  const before = input.slice(0, offset);
+  const line = (before.match(/\n/g) ?? []).length + 1;
+  const lastNewline = before.lastIndexOf('\n');
+  const column = offset - lastNewline;
+  return { line, column };
+}
+
 export const DEFAULT_CONTENT = `{
   "name": "dat-tools",
   "description": "Privacy-first browser utilities for developers",
@@ -17,77 +49,46 @@ export const DEFAULT_CONTENT = `{
 }`;
 
 /**
- * Convert a character position in a string to a line and column number.
+ * Map a jsonc-parser ParseError to a human-friendly message.
  * @param {string} input
- * @param {number} position
- * @returns {{ line: number, column: number }}
+ * @param {{ error: number, offset: number, length: number }} e
+ * @returns {string}
  */
-function positionToLineColumn(input, position) {
-  const before = input.slice(0, position);
-  const line = (before.match(/\n/g) ?? []).length + 1;
-  const lastNewline = before.lastIndexOf('\n');
-  const column = position - lastNewline;
-  return { line, column };
-}
-
-/**
- * Adjust a character position to correct for V8 reporting the unexpected token
- * on the following line rather than the trailing character that caused the error.
- * When all characters from the start of the current line up to `pos` are
- * whitespace, the parser has crossed a line boundary — use the '\n' at the end
- * of the previous line so that line/column resolve to the actual error line.
- * @param {string} input
- * @param {number} pos
- * @returns {number}
- */
-function adjustPosition(input, pos) {
-  const lineStart = input.lastIndexOf('\n', pos - 1) + 1;
-  if (/^\s*$/.test(input.slice(lineStart, pos))) {
-    return Math.max(0, lineStart - 1);
+function friendlyMessage(input, e) {
+  const char = input[e.offset] ?? '';
+  switch (e.error) {
+    case ParseErrorCode.InvalidCommentToken:
+      return 'JSON does not support comments — remove `//` or `/* */` comments';
+    case ParseErrorCode.CloseBraceExpected:
+      return 'Missing closing brace `}`';
+    case ParseErrorCode.CloseBracketExpected:
+      return 'Missing closing bracket `]`';
+    case ParseErrorCode.ColonExpected:
+      return 'Missing colon `:` after property name';
+    case ParseErrorCode.CommaExpected:
+      return 'Missing comma between values';
+    case ParseErrorCode.PropertyNameExpected:
+      if (char === '}' || char === ']')
+        return `Trailing comma — remove the comma before \`${char}\``;
+      if (char === "'") return 'Property names must use double quotes, not single quotes';
+      return 'Property name expected';
+    case ParseErrorCode.ValueExpected:
+      if (char === '}' || char === ']')
+        return `Trailing comma — remove the comma before \`${char}\``;
+      return 'Syntax error — value expected';
+    case ParseErrorCode.InvalidSymbol:
+      if (char === "'") return 'Strings must use double quotes, not single quotes';
+      return `Invalid character \`${char}\``;
+    case ParseErrorCode.InvalidCharacter:
+      if (char === "'") return 'Strings must use double quotes, not single quotes';
+      return `Invalid character \`${char}\``;
+    case ParseErrorCode.EndOfFileExpected:
+      return 'Unexpected content after end of JSON — a document must have exactly one root value';
+    case ParseErrorCode.InvalidNumberFormat:
+      return 'Invalid number format';
+    default:
+      return 'Syntax error';
   }
-  return pos;
-}
-
-/**
- * Extract line and column info from a JSON SyntaxError.
- * Chrome: "at position N" or "at position N (line M column C)"
- * Firefox: "at line N column M"
- * @param {string} input
- * @param {Error} error
- * @returns {{ message: string, line: number | null, column: number | null }}
- */
-function extractErrorInfo(input, error) {
-  const msg = error.message;
-
-  // Chrome v8 newer format: "at position N (line M column C)"
-  // Recompute from position (ignoring V8's own line/col) so we can apply the
-  // adjustPosition heuristic and point to the actual error line.
-  const chromeDetailed = msg.match(/at position (\d+) \(line \d+ column \d+\)/);
-  if (chromeDetailed) {
-    const pos = parseInt(chromeDetailed[1], 10);
-    const { line, column } = positionToLineColumn(input, adjustPosition(input, pos));
-    return { message: msg, line, column };
-  }
-
-  // Chrome v8: "at position N"
-  const chromeMatch = msg.match(/at position (\d+)/);
-  if (chromeMatch) {
-    const pos = parseInt(chromeMatch[1], 10);
-    const { line, column } = positionToLineColumn(input, adjustPosition(input, pos));
-    return { message: msg, line, column };
-  }
-
-  // Firefox: "at line N column M"
-  const firefoxMatch = msg.match(/at line (\d+) column (\d+)/);
-  if (firefoxMatch) {
-    return {
-      message: msg,
-      line: parseInt(firefoxMatch[1], 10),
-      column: parseInt(firefoxMatch[2], 10)
-    };
-  }
-
-  return { message: msg, line: null, column: null };
 }
 
 /**
@@ -101,7 +102,7 @@ function extractErrorInfo(input, error) {
 /**
  * @typedef {Object} ParseError
  * @property {false} success
- * @property {{ message: string, line: number | null, column: number | null }} error
+ * @property {Array<{ message: string, line: number | null, column: number | null }>} errors
  */
 
 /**
@@ -110,20 +111,32 @@ function extractErrorInfo(input, error) {
  * @returns {ParseSuccess | ParseError}
  */
 export function parseJson(input) {
-  try {
-    const data = JSON.parse(input);
+  if (!input.trim()) {
+    return {
+      success: false,
+      errors: [{ message: 'Enter a JSON value', line: null, column: null }]
+    };
+  }
+  /** @type {Array<{ error: number, offset: number, length: number }>} */
+  const parseErrors = [];
+  const data = jsoncParse(input, parseErrors, {
+    allowTrailingComma: false,
+    allowEmptyContent: false,
+    disallowComments: true
+  });
+  if (parseErrors.length === 0) {
     return {
       success: true,
       data,
       formatted: JSON.stringify(data, null, 2),
       minified: JSON.stringify(data)
     };
-  } catch (/** @type {any} */ e) {
-    return {
-      success: false,
-      error: extractErrorInfo(input, e)
-    };
   }
+  const errors = parseErrors.slice(0, 10).map((e) => {
+    const { line, column } = positionToLineColumn(input, e.offset);
+    return { message: friendlyMessage(input, e), line, column };
+  });
+  return { success: false, errors };
 }
 
 /**

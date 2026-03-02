@@ -33,6 +33,7 @@
   let highlightedOutput = $derived(parseResult.success ? highlightJson(parseResult.formatted) : '');
   let stats = $derived(countJsonStats(input));
   let lineCount = $derived(stats.lines || 1);
+  let lineNumbers = $derived(Array.from({ length: lineCount }, (_, i) => i + 1));
 
   function syncGutter() {
     if (gutterEl && textareaEl) gutterEl.scrollTop = textareaEl.scrollTop;
@@ -210,8 +211,8 @@
             aria-hidden="true"
             class="overflow-hidden py-4 pr-2 pl-3 font-mono text-sm leading-5 text-gray-600 select-none"
           >
-            {#each { length: lineCount } as _, i (i)}
-              <div class="text-right">{i + 1}</div>
+            {#each lineNumbers as lineNum (lineNum)}
+              <div class="text-right">{lineNum}</div>
             {/each}
           </div>
           <!-- editor -->
@@ -219,8 +220,13 @@
             bind:this={textareaEl}
             bind:value={input}
             onscroll={syncGutter}
-            onfocus={() => { focused = true; updateCursor(); }}
-            onblur={() => { focused = false; }}
+            onfocus={() => {
+              focused = true;
+              updateCursor();
+            }}
+            onblur={() => {
+              focused = false;
+            }}
             onkeyup={updateCursor}
             onclick={updateCursor}
             class="flex-1 resize-none bg-transparent py-4 pr-4 font-mono text-sm leading-5 text-gray-100 outline-none placeholder:text-gray-500"
@@ -257,15 +263,24 @@
             <div
               class="rounded border border-red-300 bg-red-50 p-3 dark:border-red-700 dark:bg-red-900/30"
             >
-              <p class="text-sm font-medium text-red-800 dark:text-red-300">Invalid JSON</p>
-              <p class="mt-1 text-sm text-red-700 dark:text-red-400">
-                {parseResult.error.message}
+              <p class="text-sm font-medium text-red-800 dark:text-red-300">
+                Invalid JSON — {parseResult.errors.length} error{parseResult.errors.length > 1
+                  ? 's'
+                  : ''}
               </p>
-              {#if parseResult.error.line !== null}
-                <p class="mt-1 text-xs text-red-600 dark:text-red-500">
-                  Line {parseResult.error.line}, Column {parseResult.error.column}
-                </p>
-              {/if}
+              <ul class="mt-2 space-y-1.5">
+                {#each parseResult.errors as err, i (i)}
+                  <li class="text-sm text-red-700 dark:text-red-400">
+                    {#if err.line !== null}
+                      <span class="font-mono text-xs text-red-500 dark:text-red-500"
+                        >Ln {err.line}, Col {err.column}</span
+                      >
+                      —
+                    {/if}
+                    {err.message}
+                  </li>
+                {/each}
+              </ul>
             </div>
           {/if}
         </div>
