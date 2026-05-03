@@ -230,7 +230,7 @@
           >
         </div>
         <div bind:this={previewScrollEl} class="flex-1 overflow-y-auto">
-          <!-- renderedHtml is sanitized by DOMPurify inside renderMarkdown before being passed here -->
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitized by DOMPurify in renderMarkdown -->
           <div class="markdown-body p-4">{@html renderedHtml}</div>
         </div>
       </div>
