@@ -17,7 +17,7 @@
   function handleStopwatchStart(detail) {
     const { elapsedTime } = detail;
     if (typeof document !== 'undefined') {
-      document.title = `${formatTime(elapsedTime)} - Stopwatch`;
+      document.title = formatTime(elapsedTime);
     }
   }
 
@@ -28,7 +28,7 @@
   function handleStopwatchPause(detail) {
     const { elapsedTime } = detail;
     if (typeof document !== 'undefined') {
-      document.title = `${formatTime(elapsedTime)} - Stopwatch`;
+      document.title = formatTime(elapsedTime);
     }
   }
 
@@ -39,7 +39,7 @@
   function handleStopwatchTick(detail) {
     const { elapsedTime } = detail;
     if (typeof document !== 'undefined') {
-      document.title = `${formatTime(elapsedTime)} - Stopwatch`;
+      document.title = formatTime(elapsedTime);
     }
   }
 

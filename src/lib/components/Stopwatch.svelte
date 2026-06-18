@@ -33,6 +33,14 @@
    */
 
   /**
+   * @typedef {Object} Lap
+   * @property {number} id - Sequential lap number
+   * @property {number} startTimestamp - Wall-clock start of the lap segment
+   * @property {number} endTimestamp - Wall-clock end of the lap segment
+   * @property {number} elapsedMinutes - Lap duration in whole minutes
+   */
+
+  /**
    * @type {{
    *   onstart?: (detail: StopwatchStartDetail) => void,
    *   onpause?: (detail: StopwatchPauseDetail) => void,
@@ -50,6 +58,11 @@
   /** @type {any[]} */
   let records = $state([]);
   let showClearModal = $state(false);
+
+  /** @type {Lap[]} */
+  let laps = $state([]);
+  let lastLapElapsed = $state(0);
+  let lastLapTimestamp = $state(0);
 
   $effect(() => {
     if (!isRunning) return;
@@ -81,6 +94,12 @@
    */
   function start() {
     if (!isRunning) {
+      if (!isPaused) {
+        laps = [];
+        lastLapElapsed = 0;
+        lastLapTimestamp = 0;
+      }
+
       if (!isPaused && elapsedTime > 0) {
         elapsedTime = 0;
         startTime = 0;
@@ -110,6 +129,29 @@
   }
 
   /**
+   * Record a lap: the elapsed time since the previous lap (or session start
+   * for the first lap). Splits are kept in memory only.
+   */
+  function lap() {
+    if (!isRunning) return;
+
+    const now = Date.now();
+    const splitMs = elapsedTime - lastLapElapsed;
+    laps = [
+      {
+        id: laps.length + 1,
+        startTimestamp: lastLapTimestamp || sessionStartTime,
+        endTimestamp: now,
+        elapsedMinutes: Math.floor(splitMs / 60000)
+      },
+      ...laps
+    ];
+
+    lastLapElapsed = elapsedTime;
+    lastLapTimestamp = now;
+  }
+
+  /**
    * Stop the stopwatch, call parent callback, and save session record
    */
   async function stop() {
@@ -117,6 +159,19 @@
     isPaused = false;
 
     const endTimestamp = Date.now();
+
+    if (laps.length > 0 && elapsedTime > lastLapElapsed) {
+      const splitMs = elapsedTime - lastLapElapsed;
+      laps = [
+        {
+          id: laps.length + 1,
+          startTimestamp: lastLapTimestamp || sessionStartTime,
+          endTimestamp,
+          elapsedMinutes: Math.floor(splitMs / 60000)
+        },
+        ...laps
+      ];
+    }
 
     if (elapsedTime > 0 && sessionStartTime > 0) {
       onstop({ elapsedTime, sessionStartTime, endTimestamp });
@@ -175,6 +230,12 @@
     >
       Pause
     </button>
+    <button
+      onclick={lap}
+      class="rounded-lg bg-blue-600 px-16 py-8 text-3xl font-bold text-white transition-colors hover:bg-blue-700 active:bg-blue-800 md:text-4xl"
+    >
+      Lap
+    </button>
   {:else if isPaused}
     <button
       onclick={start}
@@ -191,6 +252,33 @@
     Stop
   </button>
 </div>
+
+<!-- Laps Section (in-memory only, cleared on a fresh start) -->
+{#if laps.length > 0}
+  <div
+    class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-800"
+  >
+    <div class="mb-4">
+      <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Laps</h2>
+    </div>
+
+    <div class="max-h-96 space-y-3 overflow-y-auto">
+      {#each laps as lap (lap.id)}
+        <div
+          class="rounded border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900"
+        >
+          <div class="font-mono text-sm text-gray-700 dark:text-gray-300">
+            📅 {formatDate(lap.startTimestamp)} ⏱ {formatTimeOnly(
+              lap.startTimestamp
+            )}-{formatTimeOnly(lap.endTimestamp)} ⏳ Lap {lap.id}:
+            <span class="text-blue-600 dark:text-blue-400">{formatElapsed(lap.elapsedMinutes)}</span
+            >
+          </div>
+        </div>
+      {/each}
+    </div>
+  </div>
+{/if}
 
 <!-- Records Section -->
 <div class="rounded-lg border border-gray-200 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-800">
