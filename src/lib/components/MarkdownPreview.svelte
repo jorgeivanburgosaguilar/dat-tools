@@ -1,6 +1,5 @@
 <script>
   import { untrack } from 'svelte';
-  import { browser } from '$app/environment';
   import { renderMarkdown } from '$lib/markdown-preview.js';
   import { computePreviewScrollTop, resolveLeadOffsetPx } from '$lib/preview-scroll.js';
   import SplitView from '$lib/components/SplitView.svelte';
@@ -18,16 +17,7 @@
   // local state is intentionally initialized once and detached from the prop thereafter.
   let markdown = $state(untrack(() => initialContent));
 
-  /** @type {any} */
-  let purify = $state(null);
-
-  if (browser) {
-    import('dompurify').then((mod) => {
-      purify = mod.default;
-    });
-  }
-
-  let renderedHtml = $derived.by(() => renderMarkdown(markdown, purify));
+  let renderedHtml = $derived.by(() => renderMarkdown(markdown));
 
   let charCount = $derived(markdown.length);
   let wordCount = $derived(markdown.trim() ? markdown.trim().split(/\s+/).length : 0);
@@ -115,8 +105,7 @@
       bind:this={textareaEl}
       bind:value={markdown}
       class="flex-1 resize-none bg-white p-4 font-mono text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
-      placeholder="Type your markdown here..."
-    ></textarea>
+      placeholder="Type your markdown here..."></textarea>
   {/snippet}
 
   {#snippet second()}
