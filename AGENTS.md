@@ -24,6 +24,10 @@ A collection of privacy-first, client-side browser utilities for developers. All
 - Prefer `const`; use `let` only when reassignment is needed. Never use `var`.
 - Error handling: use try/catch in API routes, return appropriate JSON error responses with status codes.
 
+## Git Workflow
+
+- Never run `git commit` unless the user has explicitly asked for a commit to be created in this turn. Making code changes or completing a task is never implicit permission to commit.
+
 ## Project Commands
 
 - `pnpm dev` — start dev server
