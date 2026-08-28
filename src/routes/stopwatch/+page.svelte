@@ -3,6 +3,7 @@
   import { resolve } from '$app/paths';
   import { formatTime } from '$lib/stopwatch-utils';
   import Stopwatch from '$lib/components/Stopwatch.svelte';
+  import favicon from '$lib/assets/favicon-stopwatch.svg';
 
   let originalTitle = $state('');
 
@@ -55,6 +56,7 @@
 
 <svelte:head>
   <title>Stopwatch</title>
+  <link rel="icon" href={favicon} />
 </svelte:head>
 
 <main class="flex min-h-screen flex-col items-center justify-center bg-white p-4 dark:bg-gray-900">
