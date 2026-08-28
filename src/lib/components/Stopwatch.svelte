@@ -9,6 +9,7 @@
   import { onMount, untrack } from 'svelte';
   import { initDB, saveRecord, getAllRecords, clearAllRecords } from '$lib/stopwatch-db';
   import { formatTime, formatDate, formatTimeOnly, formatElapsed } from '$lib/stopwatch-utils';
+  import { savePausedSession, loadPausedSession, clearPausedSession } from '$lib/stopwatch-storage';
 
   /**
    * @typedef {Object} StopwatchStartDetail
@@ -63,6 +64,7 @@
   let laps = $state([]);
   let lastLapElapsed = $state(0);
   let lastLapTimestamp = $state(0);
+  let restoredPausedAt = $state(0);
 
   $effect(() => {
     if (!isRunning) return;
@@ -83,7 +85,26 @@
   onMount(async () => {
     await initDB();
     await loadRecords();
+    restorePausedSession();
   });
+
+  /**
+   * Restore a previously paused session from localStorage, if one exists,
+   * so the user can pick up where they left off across page visits.
+   */
+  function restorePausedSession() {
+    const saved = loadPausedSession();
+    if (!saved) return;
+
+    elapsedTime = saved.elapsedTime;
+    sessionStartTime = saved.sessionStartTime;
+    laps = saved.laps;
+    lastLapElapsed = saved.lastLapElapsed;
+    lastLapTimestamp = saved.lastLapTimestamp;
+    restoredPausedAt = saved.pausedAt;
+    isPaused = true;
+    isRunning = false;
+  }
 
   async function loadRecords() {
     records = await getAllRecords();
@@ -98,6 +119,7 @@
         laps = [];
         lastLapElapsed = 0;
         lastLapTimestamp = 0;
+        restoredPausedAt = 0;
       }
 
       if (!isPaused && elapsedTime > 0) {
@@ -123,6 +145,15 @@
     if (isRunning) {
       isRunning = false;
       isPaused = true;
+
+      savePausedSession({
+        elapsedTime,
+        sessionStartTime,
+        laps,
+        lastLapElapsed,
+        lastLapTimestamp,
+        pausedAt: Date.now()
+      });
 
       onpause({ elapsedTime });
     }
@@ -157,6 +188,9 @@
   async function stop() {
     isRunning = false;
     isPaused = false;
+    restoredPausedAt = 0;
+
+    clearPausedSession();
 
     const endTimestamp = Date.now();
 
@@ -212,6 +246,11 @@
   >
     {formatTime(elapsedTime)}
   </h1>
+  {#if restoredPausedAt > 0}
+    <p class="mt-2 font-mono text-sm text-gray-500 dark:text-gray-400">
+      Resumed from a pause on {formatDate(restoredPausedAt)} at {formatTimeOnly(restoredPausedAt)}
+    </p>
+  {/if}
 </div>
 
 <!-- Controls - Large Buttons -->

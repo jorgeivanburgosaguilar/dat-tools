@@ -2,11 +2,13 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Stopwatch from './Stopwatch.svelte';
 import { clearAllRecords } from '$lib/stopwatch-db';
+import { clearPausedSession } from '$lib/stopwatch-storage';
 
 describe('Stopwatch', () => {
   afterEach(async () => {
     vi.useRealTimers();
     await clearAllRecords();
+    clearPausedSession();
   });
 
   it('renders initial time display as 00:00:00', async () => {
@@ -122,6 +124,63 @@ describe('Stopwatch', () => {
 
     await vi.advanceTimersByTimeAsync(10000);
     expect(ontick).toHaveBeenCalledTimes(1); // no additional calls after unmount
+  });
+
+  describe('Paused session persistence', () => {
+    it('restores elapsed time and Continue state on remount after pause', async () => {
+      const screen = render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await screen.getByRole('button', { name: 'Pause' }).click();
+      screen.unmount();
+
+      const remounted = render(Stopwatch);
+      await expect.element(remounted.getByRole('button', { name: 'Continue' })).toBeVisible();
+    });
+
+    it('does not show a "Resumed from a pause" note on a normal pause without reload', async () => {
+      const screen = render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await screen.getByRole('button', { name: 'Pause' }).click();
+      await expect.element(screen.getByText(/Resumed from a pause/)).not.toBeInTheDocument();
+    });
+
+    it('shows a "Resumed from a pause" note after remount', async () => {
+      const screen = render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await screen.getByRole('button', { name: 'Pause' }).click();
+      screen.unmount();
+
+      const remounted = render(Stopwatch);
+      await expect.element(remounted.getByText(/Resumed from a pause/)).toBeVisible();
+    });
+
+    it('hides the "Resumed from a pause" note after Stop', async () => {
+      const screen = render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await screen.getByRole('button', { name: 'Pause' }).click();
+      screen.unmount();
+
+      const remounted = render(Stopwatch);
+      await expect.element(remounted.getByText(/Resumed from a pause/)).toBeVisible();
+      await remounted.getByRole('button', { name: 'Stop' }).click();
+      await expect.element(remounted.getByText(/Resumed from a pause/)).not.toBeInTheDocument();
+    });
+
+    it('does not restore a paused session after Stop', async () => {
+      const screen = render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await screen.getByRole('button', { name: 'Pause' }).click();
+      await screen.getByRole('button', { name: 'Stop' }).click();
+      screen.unmount();
+
+      const remounted = render(Stopwatch);
+      await expect.element(remounted.getByRole('button', { name: 'Start' })).toBeVisible();
+    });
   });
 
   describe('Records', () => {
