@@ -1,4 +1,5 @@
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 
 // Inline SVG data URI — no network request, renders entirely in the browser.
 const EXAMPLE_IMAGE_SRC = `data:image/svg+xml,${encodeURIComponent(
@@ -188,17 +189,19 @@ marked.use({
 });
 
 /**
- * Parse markdown to sanitized HTML. DOMPurify is loaded dynamically (browser only)
- * so this function is safe to call during SSR — it will return raw HTML on the server.
+ * Parse markdown to sanitized HTML. DOMPurify is imported statically. During SSR/
+ * prerendering there is no `window` global at all, so DOMPurify.isSupported is false
+ * and sanitize() is never defined — that path only ever runs against this module's own
+ * trusted DEFAULT_CONTENT, since real user input is entered and rendered entirely
+ * client-side, where `window` always exists and sanitize() always runs.
  *
  * Tokens are annotated with _lineStart before parsing so the custom renderer can
  * embed data-line attributes used by the scroll sync feature.
  *
  * @param {string} markdown
- * @param {any} purify - DOMPurify instance, or null during SSR
  * @returns {string}
  */
-export function renderMarkdown(markdown, purify) {
+export function renderMarkdown(markdown) {
   const tokens = marked.lexer(markdown);
   let line = 1;
   for (const token of tokens) {
@@ -207,5 +210,5 @@ export function renderMarkdown(markdown, purify) {
   }
   const raw = /** @type {string} */ (marked.parser(tokens));
   // ADD_ATTR ensures data-line survives DOMPurify sanitization
-  return purify ? purify.sanitize(raw, { ADD_ATTR: ['data-line'] }) : raw;
+  return DOMPurify.isSupported ? DOMPurify.sanitize(raw, { ADD_ATTR: ['data-line'] }) : raw;
 }

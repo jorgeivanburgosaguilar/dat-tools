@@ -123,8 +123,7 @@
         onkeyup={updateCursor}
         onclick={updateCursor}
         class="flex-1 resize-none bg-transparent py-4 pr-4 font-mono text-sm leading-5 text-gray-900 outline-none placeholder:text-gray-400 dark:text-gray-100 dark:placeholder:text-gray-500"
-        placeholder="Paste your JSON here..."
-      ></textarea>
+        placeholder="Paste your JSON here..."></textarea>
     </div>
   {/snippet}
 
