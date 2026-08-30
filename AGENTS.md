@@ -16,7 +16,7 @@ A collection of privacy-first, client-side browser utilities for developers. All
 | JSON Parser/Validator | Parse and validate JSON    | Available |
 | Word Counter          | Count words and characters | Available |
 | Markdown Preview      | Write and preview markdown | Available |
-| Code/Text Diff        | Compare text side-by-side  | Planned   |
+| Code/Text Diff        | Compare text side-by-side  | Available |
 
 ## General Code Style
 
@@ -42,6 +42,97 @@ A collection of privacy-first, client-side browser utilities for developers. All
 - After formatting, run `pnpm check` and `pnpm lint`.
 - `pnpm check` and `pnpm lint` must not report already known errors as part of the final state.
 - If any `.svelte` file changed, run the `svelte-autofixer` tool before presenting results.
+- If test files changed or new coverage was added, run `pnpm test` and confirm a clean pass across
+  both Vitest projects before presenting results.
+
+## Testing
+
+- `pnpm test` — single run (CI-style). `pnpm test:unit` — watch mode.
+- `expect: { requireAssertions: true }` is set globally in `vite.config.js` — every test must
+  contain at least one assertion.
+
+### Dual-project architecture
+
+`vite.config.js` defines two Vitest projects; a spec file's **name** decides which one runs it —
+there is no manual project selection:
+
+| Project  | Environment                      | Include globs                                                       |
+| -------- | -------------------------------- | ------------------------------------------------------------------- |
+| `client` | Headless Chromium via Playwright | `src/**/*.svelte.{test,spec}.js`, `src/**/*.browser.{test,spec}.js` |
+| `server` | Node.js                          | `src/**/*.{test,spec}.js` (excluding the two client patterns above) |
+
+**Naming rule — pick the suffix by what the code under test needs, not by preference:**
+
+- `*.svelte.spec.js` — Svelte component tests (needs real DOM via `vitest-browser-svelte`).
+- `*.browser.spec.js` — a plain `.js` module that needs a real browser API at runtime:
+  `localStorage`, `indexedDB`, or a working `DOMPurify` (see below). Existing example:
+  `html-table-to-markdown.browser.spec.js`.
+- `*.spec.js` — pure, browser-independent logic. Runs in Node with zero browser startup cost.
+
+Getting this wrong doesn't fail loudly — the test just runs in the wrong environment and silently
+exercises different behavior than production. In particular:
+
+- **Sanitization/XSS tests must use `.browser.spec.js`.** `DOMPurify.isSupported` is `false` under
+  Node (no `window`), so code like `markdown-preview.js`'s `renderMarkdown()` skips sanitization
+  entirely in that environment — an XSS test in the wrong project would pass against unsanitized
+  HTML and never catch a real regression. Add a guard assertion
+  (`expect(DOMPurify.isSupported).toBe(true)`) at the top of such a suite so a future misplacement
+  fails loudly instead of silently.
+- Any module reading `localStorage`/`indexedDB` needs `.browser.spec.js` — those globals don't
+  exist under Node.
+
+### No real sleeps
+
+- **Never** use `await new Promise((r) => setTimeout(r, N))` to wait out a component's own timer.
+  It was previously used 12× in `Stopwatch.svelte.spec.js` alone, adding ~13s of dead time to every
+  run.
+- For a component-owned `setInterval`/`setTimeout`, use scoped fake timers so unrelated retry
+  polling (`expect.element(...)`, which itself uses real timers internally) keeps working:
+  ```javascript
+  vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+  // trigger the action
+  await vi.advanceTimersByTimeAsync(1100);
+  // assert
+  vi.useRealTimers(); // in afterEach
+  ```
+  Fake `Date` alongside the timer functions whenever the component reads `Date.now()` inside the
+  interval callback (as `Stopwatch.svelte` does) — otherwise elapsed-time math goes stale relative
+  to the faked clock.
+- **Fake timers only help when the thing you're waiting on is actually timer-driven.** If the delay
+  comes from something else — a dynamic import, an IndexedDB transaction, a debounced async
+  pipeline — advancing fake timers does nothing. Use `expect.element(...)` (auto-retries) or
+  `expect.poll(() => condition, { timeout: 3000 })` instead.
+
+### Svelte 5 & Vitest Browser Testing pattern
+
+- Use `render` from `vitest-browser-svelte`; assert with
+  `expect.element(screen.getByRole(...)).toBeVisible()`.
+- Prefer accessible queries (`getByRole`, `getByText`, `getByLabelText`) over CSS classes or
+  internal IDs (Testing Trophy philosophy).
+- Test callback props with `vi.fn()`:
+  ```javascript
+  const onchange = vi.fn();
+  render(WordCounter, { onchange });
+  // interact
+  expect(onchange).toHaveBeenCalledWith(expect.objectContaining({ words: 2 }));
+  ```
+- For a component that accepts **snippet props** it can't construct on its own (e.g. panes,
+  actions), write a thin test-only harness `.svelte` component that supplies mock snippets and
+  wraps the real component — see `DiffLayoutHarness.svelte`, used by `DiffLayout.svelte.spec.js`.
+
+### State isolation between tests
+
+- Clean up storage a test wrote to in `afterEach`/`beforeEach`: remove specific `localStorage`
+  keys, clear IndexedDB stores, `vi.restoreAllMocks()` after spying.
+- A module that caches a resource at module scope (e.g. `stopwatch-db.js` keeps its open IndexedDB
+  connection in a module-level `let db = null;`) is shared across every test in that file — prefer
+  clearing its data (`clearAllRecords()`) over deleting/recreating the underlying resource, which
+  would race the stale cached handle.
+
+### JS + JSDoc only
+
+- New test files are `.spec.js`, `.browser.spec.js`, or `.svelte.spec.js` — never `.ts`, per the
+  project-wide JSDoc-only type system.
 
 ## Type System
 

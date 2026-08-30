@@ -47,3 +47,150 @@
     color: theme('colors.gray.400');
   }
 }
+
+/* Diff Checker: row-level tints (soft) and character-level marks (stronger), plus the
+   whitespace-visualization glyphs. Diff classes contribute background only so text color from
+   syntax highlighting composes cleanly on top. */
+.diff-line-added {
+  background-color: theme('colors.green.50');
+  @variant dark {
+    background-color: color-mix(in srgb, theme('colors.green.900') 35%, transparent);
+  }
+}
+
+.diff-line-removed {
+  background-color: theme('colors.red.50');
+  @variant dark {
+    background-color: color-mix(in srgb, theme('colors.red.900') 35%, transparent);
+  }
+}
+
+.diff-line-filler {
+  background-image: repeating-linear-gradient(
+    45deg,
+    theme('colors.gray.100'),
+    theme('colors.gray.100') 4px,
+    theme('colors.gray.50') 4px,
+    theme('colors.gray.50') 8px
+  );
+  @variant dark {
+    background-image: repeating-linear-gradient(
+      45deg,
+      theme('colors.gray.800'),
+      theme('colors.gray.800') 4px,
+      theme('colors.gray.900') 4px,
+      theme('colors.gray.900') 8px
+    );
+  }
+}
+
+.diff-char-added {
+  background-color: theme('colors.green.200');
+  @variant dark {
+    background-color: color-mix(in srgb, theme('colors.green.700') 55%, transparent);
+  }
+}
+
+.diff-char-removed {
+  background-color: theme('colors.red.200');
+  @variant dark {
+    background-color: color-mix(in srgb, theme('colors.red.700') 55%, transparent);
+  }
+}
+
+.diff-ws {
+  color: theme('colors.gray.400');
+  opacity: 0.7;
+  @variant dark {
+    color: theme('colors.gray.500');
+  }
+}
+
+/* Whitespace glyphs render everywhere, but stand out inside an actual change. */
+.diff-char-added .diff-ws {
+  color: theme('colors.green.800');
+  opacity: 1;
+  @variant dark {
+    color: theme('colors.green.300');
+  }
+}
+
+.diff-char-removed .diff-ws {
+  color: theme('colors.red.800');
+  opacity: 1;
+  @variant dark {
+    color: theme('colors.red.300');
+  }
+}
+
+/* Syntax highlighting tokens (lowlight/highlight.js class names), hand-written to follow the
+   same light/dark pattern as the .json-* palette above rather than importing a highlight.js
+   theme stylesheet, which would only cover one color scheme. */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-link {
+  color: theme('colors.blue.700');
+  @variant dark {
+    color: theme('colors.blue.400');
+  }
+}
+
+.hljs-string,
+.hljs-title,
+.hljs-name,
+.hljs-type,
+.hljs-attribute,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+  color: theme('colors.green.700');
+  @variant dark {
+    color: theme('colors.green.400');
+  }
+}
+
+.hljs-comment,
+.hljs-quote,
+.hljs-deletion,
+.hljs-meta {
+  color: theme('colors.gray.500');
+  @variant dark {
+    color: theme('colors.gray.400');
+  }
+}
+
+.hljs-number,
+.hljs-regexp,
+.hljs-built_in {
+  color: theme('colors.orange.700');
+  @variant dark {
+    color: theme('colors.orange.400');
+  }
+}
+
+.hljs-variable,
+.hljs-template-variable,
+.hljs-params {
+  color: theme('colors.gray.900');
+  @variant dark {
+    color: theme('colors.gray.100');
+  }
+}
+
+.hljs-function,
+.hljs-class {
+  color: theme('colors.purple.700');
+  @variant dark {
+    color: theme('colors.purple.400');
+  }
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 700;
+}

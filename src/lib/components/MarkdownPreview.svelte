@@ -1,8 +1,9 @@
 <script>
-  import { untrack } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { renderMarkdown } from '$lib/markdown-preview.js';
   import { computePreviewScrollTop, resolveLeadOffsetPx } from '$lib/preview-scroll.js';
   import SplitView from '$lib/components/SplitView.svelte';
+  import HtmlTableImportModal from '$lib/components/HtmlTableImportModal.svelte';
   import 'github-markdown-css/github-markdown.css';
 
   /**
@@ -32,12 +33,16 @@
   let previewScrollEl = $state(null);
 
   let cursorLine = $state(1);
+  // Tracks the caret so "Import HTML Table" can insert at the right spot; defaults to the
+  // end of the document so inserting before ever focusing the textarea appends.
+  let caret = $state(untrack(() => initialContent).length);
 
   $effect(() => {
     if (!textareaEl) return;
 
     function onSelectionChange() {
       if (!textareaEl || document.activeElement !== textareaEl) return;
+      caret = textareaEl.selectionStart;
       cursorLine = markdown.slice(0, textareaEl.selectionStart).split('\n').length;
     }
 
@@ -92,6 +97,35 @@
     copied = 'html';
     setTimeout(() => (copied = ''), 1500);
   }
+
+  let showTableImport = $state(false);
+
+  /**
+   * Splices `text` into the document at the last known caret position, adding surrounding
+   * blank lines only where one isn't already present (a GFM table needs a blank line before
+   * it to be recognized), then moves the caret to the end of the inserted block.
+   * @param {string} text
+   */
+  async function insertAtCursor(text) {
+    const before = markdown.slice(0, caret);
+    const after = markdown.slice(caret);
+
+    const leadingGap =
+      before === '' || before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n';
+    const trailingGap =
+      after === '' || after.startsWith('\n\n') ? '' : after.startsWith('\n') ? '\n' : '\n\n';
+
+    const insertion = leadingGap + text + trailingGap;
+    const insertEnd = before.length + insertion.length;
+
+    markdown = before + insertion + after;
+    showTableImport = false;
+
+    await tick();
+    textareaEl?.focus();
+    textareaEl?.setSelectionRange(insertEnd, insertEnd);
+    caret = insertEnd;
+  }
 </script>
 
 <SplitView>
@@ -122,6 +156,12 @@
 
   {#snippet actions()}
     <button
+      onclick={() => (showTableImport = true)}
+      class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+    >
+      Import HTML Table
+    </button>
+    <button
       onclick={clear}
       class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
     >
@@ -145,3 +185,9 @@
     {wordCount} words · {lineCount} lines · {charCount} characters
   {/snippet}
 </SplitView>
+
+<HtmlTableImportModal
+  open={showTableImport}
+  oninsert={insertAtCursor}
+  onclose={() => (showTableImport = false)}
+/>
