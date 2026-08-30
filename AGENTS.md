@@ -16,7 +16,7 @@ A collection of privacy-first, client-side browser utilities for developers. All
 | JSON Parser/Validator | Parse and validate JSON    | Available |
 | Word Counter          | Count words and characters | Available |
 | Markdown Preview      | Write and preview markdown | Available |
-| Code/Text Diff        | Compare text side-by-side  | Planned   |
+| Code/Text Diff        | Compare text side-by-side  | Available |
 
 ## General Code Style
 
