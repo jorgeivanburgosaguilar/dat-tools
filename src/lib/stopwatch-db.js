@@ -4,6 +4,14 @@ const STORE_NAME = 'records';
 let db = null;
 
 /**
+ * @typedef {Object} StopwatchRecord
+ * @property {number} id - Auto-generated primary key
+ * @property {number} startTimestamp - Session start timestamp in milliseconds
+ * @property {number} endTimestamp - Session end timestamp in milliseconds
+ * @property {number} elapsedMinutes - Elapsed duration in whole minutes
+ */
+
+/**
  * Initializes the IndexedDB database for storing stopwatch records.
  * Creates the database and object store if they don't exist.
  * @returns {Promise<IDBDatabase>} A promise that resolves to the database instance
@@ -55,7 +63,7 @@ export async function saveRecord(startTimestamp, endTimestamp, elapsedMs) {
 
 /**
  * Retrieves all saved stopwatch records from the database.
- * @returns {Promise<Array<Object>>} A promise that resolves to an array of records in reverse chronological order
+ * @returns {Promise<StopwatchRecord[]>} A promise that resolves to an array of records in reverse chronological order
  */
 export async function getAllRecords() {
   const db = await initDB();

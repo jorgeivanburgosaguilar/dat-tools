@@ -1,10 +1,17 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Stopwatch from './Stopwatch.svelte';
 import { clearAllRecords } from '$lib/stopwatch-db';
 import { clearPausedSession } from '$lib/stopwatch-storage';
 
 describe('Stopwatch', () => {
+  beforeEach(() => {
+    // Only fake what the component actually drives its own timing with.
+    // Leaving setTimeout real keeps expect.element(...) retry-polling working,
+    // since vitest-browser-svelte's assertions rely on it internally.
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+  });
+
   afterEach(async () => {
     vi.useRealTimers();
     await clearAllRecords();
@@ -75,8 +82,8 @@ describe('Stopwatch', () => {
     const onstop = vi.fn();
     const screen = render(Stopwatch, { onstop });
     await screen.getByRole('button', { name: 'Start' }).click();
-    // Wait for the 1-second interval to fire so elapsedTime > 0
-    await new Promise((resolve) => setTimeout(resolve, 1100));
+    // Advance the faked clock so the 1-second interval fires and elapsedTime > 0
+    await vi.advanceTimersByTimeAsync(1100);
     await screen.getByRole('button', { name: 'Stop' }).click();
     expect(onstop).toHaveBeenCalledOnce();
     expect(onstop).toHaveBeenCalledWith(
@@ -96,7 +103,6 @@ describe('Stopwatch', () => {
   });
 
   it('calls ontick at 5-second intervals', async () => {
-    vi.useFakeTimers();
     const ontick = vi.fn();
     const screen = render(Stopwatch, { ontick });
     await screen.getByRole('button', { name: 'Start' }).click();
@@ -112,7 +118,6 @@ describe('Stopwatch', () => {
   });
 
   it('stops interval after component unmount', async () => {
-    vi.useFakeTimers();
     const ontick = vi.fn();
     const screen = render(Stopwatch, { ontick });
     await screen.getByRole('button', { name: 'Start' }).click();
@@ -126,11 +131,85 @@ describe('Stopwatch', () => {
     expect(ontick).toHaveBeenCalledTimes(1); // no additional calls after unmount
   });
 
+  describe('Laps', () => {
+    it('shows a Lap button only while running', async () => {
+      const screen = render(Stopwatch);
+      await expect.element(screen.getByRole('button', { name: 'Lap' })).not.toBeInTheDocument();
+
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await expect.element(screen.getByRole('button', { name: 'Lap' })).toBeVisible();
+
+      await screen.getByRole('button', { name: 'Pause' }).click();
+      await expect.element(screen.getByRole('button', { name: 'Lap' })).not.toBeInTheDocument();
+    });
+
+    it('adds a lap entry when Lap is clicked', async () => {
+      const screen = render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await vi.advanceTimersByTimeAsync(1100);
+      await screen.getByRole('button', { name: 'Lap' }).click();
+      await expect.element(screen.getByText(/⏳ Lap 1:/)).toBeVisible();
+    });
+
+    it('computes distinct split durations for consecutive laps', async () => {
+      const screen = render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+
+      // First lap: ~61s elapsed since session start -> a 1-minute split
+      await vi.advanceTimersByTimeAsync(61000);
+      await screen.getByRole('button', { name: 'Lap' }).click();
+      await expect.element(screen.getByText(/⏳ Lap 1:.*00:01/)).toBeVisible();
+
+      // Second lap: ~121s further -> a 2-minute split, distinct from the first
+      await vi.advanceTimersByTimeAsync(121000);
+      await screen.getByRole('button', { name: 'Lap' }).click();
+      await expect.element(screen.getByText(/⏳ Lap 2:.*00:02/)).toBeVisible();
+    });
+
+    it('clears laps when starting a fresh session after Stop', async () => {
+      const screen = render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await vi.advanceTimersByTimeAsync(1100);
+      await screen.getByRole('button', { name: 'Lap' }).click();
+      await expect.element(screen.getByText(/⏳ Lap 1:/)).toBeVisible();
+
+      await screen.getByRole('button', { name: 'Stop' }).click();
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await expect.element(screen.getByText(/⏳ Lap/)).not.toBeInTheDocument();
+    });
+
+    it('persists laps across a pause/remount cycle', async () => {
+      const screen = render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await vi.advanceTimersByTimeAsync(1100);
+      await screen.getByRole('button', { name: 'Lap' }).click();
+      await expect.element(screen.getByText(/⏳ Lap 1:/)).toBeVisible();
+
+      await screen.getByRole('button', { name: 'Pause' }).click();
+      screen.unmount();
+
+      const remounted = render(Stopwatch);
+      await expect.element(remounted.getByText(/⏳ Lap 1:/)).toBeVisible();
+    });
+
+    it('records a final partial lap on Stop when time passed since the last lap', async () => {
+      const screen = render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await vi.advanceTimersByTimeAsync(1100);
+      await screen.getByRole('button', { name: 'Lap' }).click();
+      await expect.element(screen.getByText(/⏳ Lap 1:/)).toBeVisible();
+
+      await vi.advanceTimersByTimeAsync(1100);
+      await screen.getByRole('button', { name: 'Stop' }).click();
+      await expect.element(screen.getByText(/⏳ Lap 2:/)).toBeVisible();
+    });
+  });
+
   describe('Paused session persistence', () => {
     it('restores elapsed time and Continue state on remount after pause', async () => {
       const screen = render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
-      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Pause' }).click();
       screen.unmount();
 
@@ -141,7 +220,7 @@ describe('Stopwatch', () => {
     it('does not show a "Resumed from a pause" note on a normal pause without reload', async () => {
       const screen = render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
-      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Pause' }).click();
       await expect.element(screen.getByText(/Resumed from a pause/)).not.toBeInTheDocument();
     });
@@ -149,7 +228,7 @@ describe('Stopwatch', () => {
     it('shows a "Resumed from a pause" note after remount', async () => {
       const screen = render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
-      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Pause' }).click();
       screen.unmount();
 
@@ -160,7 +239,7 @@ describe('Stopwatch', () => {
     it('hides the "Resumed from a pause" note after Stop', async () => {
       const screen = render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
-      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Pause' }).click();
       screen.unmount();
 
@@ -173,7 +252,7 @@ describe('Stopwatch', () => {
     it('does not restore a paused session after Stop', async () => {
       const screen = render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
-      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Pause' }).click();
       await screen.getByRole('button', { name: 'Stop' }).click();
       screen.unmount();
@@ -192,7 +271,7 @@ describe('Stopwatch', () => {
     it('shows a record entry after starting and stopping', async () => {
       const screen = render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
-      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Stop' }).click();
       await expect.element(screen.getByText(/Duration:/)).toBeVisible();
     });
@@ -200,7 +279,7 @@ describe('Stopwatch', () => {
     it('does not show a duplicate record if stopped twice without restarting', async () => {
       const screen = render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
-      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Stop' }).click();
       await expect.element(screen.getByText(/Duration:/)).toBeVisible();
       // Stop again without restarting — sessionStartTime is 0, so no save occurs
@@ -215,7 +294,7 @@ describe('Stopwatch', () => {
         .not.toBeInTheDocument();
 
       await screen.getByRole('button', { name: 'Start' }).click();
-      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Stop' }).click();
       await expect.element(screen.getByRole('button', { name: 'Clear All Records' })).toBeVisible();
     });
@@ -223,7 +302,7 @@ describe('Stopwatch', () => {
     it('clicking "Clear All Records" opens the confirmation modal', async () => {
       const screen = render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
-      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Stop' }).click();
       await screen.getByRole('button', { name: 'Clear All Records' }).click();
       await expect
@@ -234,7 +313,7 @@ describe('Stopwatch', () => {
     it('clicking Cancel closes the modal without clearing records', async () => {
       const screen = render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
-      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Stop' }).click();
       await expect.element(screen.getByText(/Duration:/)).toBeVisible();
       await screen.getByRole('button', { name: 'Clear All Records' }).click();
@@ -248,7 +327,7 @@ describe('Stopwatch', () => {
     it('clicking confirm in the modal clears records and shows "No records yet"', async () => {
       const screen = render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
-      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Stop' }).click();
       await expect.element(screen.getByText(/Duration:/)).toBeVisible();
       await screen.getByRole('button', { name: 'Clear All Records' }).click();
