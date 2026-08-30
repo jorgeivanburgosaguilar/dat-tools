@@ -1,12 +1,11 @@
 <script>
-  import { resolve } from '$app/paths';
+  import { resolve, asset } from '$app/paths';
   import WordCounter from '$lib/components/WordCounter.svelte';
-  import favicon from '$lib/assets/favicon-word-counter.svg';
 </script>
 
 <svelte:head>
   <title>Word Counter</title>
-  <link rel="icon" href={favicon} />
+  <link rel="icon" href={asset('/favicon-word-counter.svg')} type="image/svg+xml" />
 </svelte:head>
 
 <main class="flex min-h-screen flex-col items-center justify-center bg-white p-4 dark:bg-gray-900">

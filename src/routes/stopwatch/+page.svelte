@@ -1,9 +1,8 @@
 <script>
   import { onMount } from 'svelte';
-  import { resolve } from '$app/paths';
+  import { resolve, asset } from '$app/paths';
   import { formatTime } from '$lib/stopwatch-utils';
   import Stopwatch from '$lib/components/Stopwatch.svelte';
-  import favicon from '$lib/assets/favicon-stopwatch.svg';
 
   let originalTitle = $state('');
 
@@ -56,7 +55,7 @@
 
 <svelte:head>
   <title>Stopwatch</title>
-  <link rel="icon" href={favicon} />
+  <link rel="icon" href={asset('/favicon-stopwatch.svg')} type="image/svg+xml" />
 </svelte:head>
 
 <main class="flex min-h-screen flex-col items-center justify-center bg-white p-4 dark:bg-gray-900">
