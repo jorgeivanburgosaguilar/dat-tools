@@ -1,12 +1,11 @@
 <script>
-  import { resolve, asset } from '$app/paths';
+  import { resolve } from '$app/paths';
   import DiffChecker from '$lib/components/DiffChecker.svelte';
   import { DEFAULT_ORIGINAL, DEFAULT_CHANGED } from '$lib/text-diff.js';
 </script>
 
 <svelte:head>
   <title>Diff Checker</title>
-  <link rel="icon" href={asset('/favicon-diff-checker.svg')} type="image/svg+xml" />
 </svelte:head>
 
 <main class="flex h-screen flex-col overflow-hidden bg-white dark:bg-gray-900">

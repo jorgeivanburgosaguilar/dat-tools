@@ -1,12 +1,11 @@
 <script>
-  import { resolve, asset } from '$app/paths';
+  import { resolve } from '$app/paths';
   import JsonParser from '$lib/components/JsonParser.svelte';
   import { DEFAULT_CONTENT } from '$lib/json-parser.js';
 </script>
 
 <svelte:head>
   <title>JSON Validator</title>
-  <link rel="icon" href={asset('/favicon-json-validator.svg')} type="image/svg+xml" />
 </svelte:head>
 
 <main class="flex h-screen flex-col overflow-hidden bg-white dark:bg-gray-900">
