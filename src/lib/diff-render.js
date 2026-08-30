@@ -1,6 +1,7 @@
 /**
  * Combines a line's diff segments with its syntax-highlight runs into a single flat list of
- * spans, and turns whitespace characters into visible glyphs for the "Show whitespace" toggle.
+ * spans, and turns whitespace characters into visible glyphs (always rendered - faint on
+ * unchanged text, strong inside a diffed span; see DiffPane.svelte and app.css).
  *
  * Pure and DOM-free: rendering always happens through `{#each}` + text interpolation in the
  * components, never `{@html}`, so nothing here needs to escape or sanitize anything.
@@ -93,7 +94,9 @@ const TAB_GLYPH = '→   '; // → + 3 non-breaking spaces
 const SPACE_GLYPH = '·'; // ·
 
 /**
- * Splits text into plain-text and whitespace chunks for the "Show whitespace" render mode.
+ * Splits text into plain-text and whitespace chunks. Whitespace glyphs render unconditionally
+ * (see DiffPane.svelte), so a run of consecutive spaces/tabs is coalesced into a single `ws`
+ * chunk (one span per run, not one per character) to keep heavily-indented lines cheap to render.
  * A run-time-only transform - the diff/highlight model itself is never mutated.
  * @param {string} text
  * @returns {WhitespaceChunk[]}
@@ -101,27 +104,36 @@ const SPACE_GLYPH = '·'; // ·
 export function toWhitespaceChunks(text) {
   /** @type {WhitespaceChunk[]} */
   const out = [];
-  let buffer = '';
+  let textBuffer = '';
+  let wsBuffer = '';
 
-  const flush = () => {
-    if (buffer.length > 0) {
-      out.push({ kind: 'text', text: buffer });
-      buffer = '';
+  const flushText = () => {
+    if (textBuffer.length > 0) {
+      out.push({ kind: 'text', text: textBuffer });
+      textBuffer = '';
+    }
+  };
+  const flushWs = () => {
+    if (wsBuffer.length > 0) {
+      out.push({ kind: 'ws', text: wsBuffer });
+      wsBuffer = '';
     }
   };
 
   for (const ch of text) {
     if (ch === SPACE) {
-      flush();
-      out.push({ kind: 'ws', text: SPACE_GLYPH });
+      flushText();
+      wsBuffer += SPACE_GLYPH;
     } else if (ch === TAB) {
-      flush();
-      out.push({ kind: 'ws', text: TAB_GLYPH });
+      flushText();
+      wsBuffer += TAB_GLYPH;
     } else {
-      buffer += ch;
+      flushWs();
+      textBuffer += ch;
     }
   }
-  flush();
+  flushText();
+  flushWs();
 
   return out;
 }

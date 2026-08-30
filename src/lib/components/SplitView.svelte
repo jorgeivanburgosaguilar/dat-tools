@@ -7,21 +7,10 @@
    * @property {import('svelte').Snippet} [status] - Status bar content.
    * @property {number} [minRatio] - Lower clamp for the first pane's size fraction.
    * @property {number} [maxRatio] - Upper clamp for the first pane's size fraction.
-   * @property {string} [firstLabel] - Segmented control label for the first pane.
-   * @property {string} [secondLabel] - Segmented control label for the second pane.
    */
 
   /** @type {SplitViewProps} */
-  let {
-    first,
-    second,
-    actions,
-    status,
-    minRatio = 0.15,
-    maxRatio = 0.85,
-    firstLabel = 'Editor',
-    secondLabel = 'Preview'
-  } = $props();
+  let { first, second, actions, status, minRatio = 0.15, maxRatio = 0.85 } = $props();
 
   let viewMode = $state(/** @type {'editor' | 'split' | 'preview'} */ ('split'));
 
@@ -86,7 +75,7 @@
           ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
           : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'}"
       >
-        {firstLabel}
+        Editor
       </button>
       <button
         onclick={() => (viewMode = 'split')}
@@ -103,7 +92,7 @@
           ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
           : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'}"
       >
-        {secondLabel}
+        Preview
       </button>
     </div>
 

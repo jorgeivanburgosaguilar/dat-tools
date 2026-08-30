@@ -3,7 +3,8 @@ import {
   LANGUAGES,
   ensureHighlighter,
   isKnownLanguage,
-  highlightLines
+  highlightLines,
+  detectLanguage
 } from './syntax-highlight.js';
 
 describe('LANGUAGES', () => {
@@ -123,5 +124,66 @@ describe('highlightLines', () => {
       .join('');
     expect(joined).toBe('<script>alert(1)</script>');
     expect(joined).not.toContain('&lt;');
+  });
+});
+
+describe('detectLanguage', () => {
+  const JS_SAMPLE = `function greet(name) {
+  console.log('Hello, ' + name + '!');
+  return true;
+}
+
+const users = ['ada', 'grace', 'margaret'];
+for (const user of users) {
+  greet(user);
+}`;
+
+  const PYTHON_SAMPLE = `def greet(name):
+    print(f"Hello, {name}!")
+    return True
+
+users = ['ada', 'grace', 'margaret']
+for user in users:
+    greet(user)`;
+
+  const PROSE_SAMPLE =
+    'This is just a plain paragraph of English text with no code in it at all, ' +
+    'written to see whether the detector mistakes prose for a programming language.';
+
+  it('confidently detects a clear JavaScript sample', async () => {
+    const lowlight = await ensureHighlighter();
+    expect(detectLanguage(JS_SAMPLE, lowlight)).toBe('javascript');
+  });
+
+  it('confidently detects a clear Python sample', async () => {
+    const lowlight = await ensureHighlighter();
+    expect(detectLanguage(PYTHON_SAMPLE, lowlight)).toBe('python');
+  });
+
+  it('returns null for short/ambiguous text below the length gate', async () => {
+    const lowlight = await ensureHighlighter();
+    expect(detectLanguage('const a = 1;', lowlight)).toBeNull();
+  });
+
+  it('returns null for plain English prose', async () => {
+    const lowlight = await ensureHighlighter();
+    expect(detectLanguage(PROSE_SAMPLE, lowlight)).toBeNull();
+  });
+
+  it('returns null when the highlighter is null', () => {
+    expect(detectLanguage(JS_SAMPLE, null)).toBeNull();
+  });
+
+  it('returns null for empty or whitespace-only text', async () => {
+    const lowlight = await ensureHighlighter();
+    expect(detectLanguage('', lowlight)).toBeNull();
+    expect(detectLanguage('   \n\t  ', lowlight)).toBeNull();
+  });
+
+  it('never guesses the excluded php-template grammar for plain HTML', async () => {
+    const lowlight = await ensureHighlighter();
+    const html =
+      '<!DOCTYPE html>\n<html>\n<head><title>Test</title></head>\n<body></body>\n</html>';
+    expect(detectLanguage(html, lowlight)).not.toBe('php-template');
   });
 });

@@ -119,16 +119,34 @@ describe('toWhitespaceChunks', () => {
     expect(chunks[chunks.length - 1]).toEqual({ kind: 'ws', text: SPACE_GLYPH });
   });
 
-  it('renders exactly one dot per consecutive space, preserving column count', () => {
+  it('coalesces a run of consecutive spaces into a single chunk, one dot per column', () => {
     const chunks = toWhitespaceChunks('a   b');
+    expect(chunks).toEqual([
+      { kind: 'text', text: 'a' },
+      { kind: 'ws', text: SPACE_GLYPH.repeat(3) },
+      { kind: 'text', text: 'b' }
+    ]);
+  });
+
+  it('coalesces two separate runs of whitespace into two chunks', () => {
+    const chunks = toWhitespaceChunks('  a  b');
     const wsChunks = chunks.filter((c) => c.kind === 'ws');
-    expect(wsChunks).toHaveLength(3);
-    expect(wsChunks.every((c) => c.text === SPACE_GLYPH)).toBe(true);
+    expect(wsChunks).toEqual([
+      { kind: 'ws', text: SPACE_GLYPH.repeat(2) },
+      { kind: 'ws', text: SPACE_GLYPH.repeat(2) }
+    ]);
   });
 
   it('renders a tab as an arrow plus three non-breaking spaces', () => {
     expect(toWhitespaceChunks('\tfoo')).toEqual([
       { kind: 'ws', text: TAB_GLYPH },
+      { kind: 'text', text: 'foo' }
+    ]);
+  });
+
+  it('coalesces a mixed space+tab run into a single chunk, glyph per character', () => {
+    expect(toWhitespaceChunks('\t foo')).toEqual([
+      { kind: 'ws', text: TAB_GLYPH + SPACE_GLYPH },
       { kind: 'text', text: 'foo' }
     ]);
   });

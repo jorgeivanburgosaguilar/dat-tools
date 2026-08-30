@@ -14,7 +14,7 @@
    * @typedef {Object} DiffPaneProps
    * @property {string} label
    * @property {DiffRenderCell[]} cells - One entry per diff row, already merged with syntax runs.
-   * @property {boolean} [showWhitespace]
+   * @property {string} [headerTitle] - Optional tooltip on the label, e.g. to explain a pane's role.
    * @property {number} [scrollTop]
    * @property {number} [scrollLeft]
    * @property {(scrollTop: number, scrollLeft: number) => void} [onscroll]
@@ -24,7 +24,7 @@
   let {
     label,
     cells,
-    showWhitespace = false,
+    headerTitle = undefined,
     scrollTop = 0,
     scrollLeft = 0,
     onscroll = () => {}
@@ -73,7 +73,9 @@
 </script>
 
 <div class="flex items-center border-b border-gray-200 px-3 py-2 dark:border-gray-700">
-  <span class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
+  <span
+    title={headerTitle}
+    class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
     >{label}</span
   >
 </div>
@@ -109,12 +111,12 @@
           <div class="h-5 pr-4 whitespace-pre {rowTint(cell)}">
             {#each cell.spans as span, j (j)}
               <span class={spanClass(span)}
-                >{#if showWhitespace}{#each toWhitespaceChunks(span.text) as chunk, k (k)}{#if chunk.kind === 'ws'}<span
-                        class="diff-ws">{chunk.text}</span
-                      >{:else}{chunk.text}{/if}{/each}{:else}{span.text}{/if}</span
+                >{#each toWhitespaceChunks(span.text) as chunk, k (k)}{#if chunk.kind === 'ws'}<span
+                      class="diff-ws">{chunk.text}</span
+                    >{:else}{chunk.text}{/if}{/each}</span
               >
             {/each}
-            {#if showWhitespace && cell.hasEol}<span class="diff-ws">&para;</span>{/if}
+            {#if cell.hasEol}<span class="diff-ws">&para;</span>{/if}
           </div>
         {/if}
       {/each}

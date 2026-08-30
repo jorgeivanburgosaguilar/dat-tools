@@ -102,6 +102,45 @@ export function isKnownLanguage(language) {
   return LANGUAGES.some((l) => l.id === language);
 }
 
+const MIN_AUTO_DETECT_LENGTH = 20; // below this, highlight.js's detection is mostly noise
+const MIN_AUTO_DETECT_RELEVANCE = 7; // calibrated against the `common` bundle - see plan notes
+
+// highlight.js's `php-template` grammar out-scores plain `xml` on ordinary HTML, and
+// `python-repl` is a niche REPL-transcript variant of Python - both would show a confusing
+// auto-picked label. Neither is removed from the dropdown; they're just excluded as an
+// auto-detect *guess*.
+const AUTO_DETECT_EXCLUDED_IDS = new Set(['php-template', 'python-repl']);
+
+/**
+ * Guesses a language for the given text using lowlight's `highlightAuto`, for use only when the
+ * user has not manually picked a language. Confidence-gated: returns `null` (leave the current
+ * selection alone) when the input is too short or the detector isn't confident, rather than ever
+ * forcing a guess onto the dropdown.
+ * @param {string} text
+ * @param {Lowlight | null} lowlight
+ * @returns {string | null}
+ */
+export function detectLanguage(text, lowlight) {
+  if (!lowlight || !text || text.trim().length < MIN_AUTO_DETECT_LENGTH) return null;
+
+  const subset = LANGUAGES.map((l) => l.id).filter(
+    (id) => id !== 'plain' && !AUTO_DETECT_EXCLUDED_IDS.has(id)
+  );
+
+  try {
+    const tree = /** @type {{ data?: { language?: string, relevance?: number } }} */ (
+      /** @type {unknown} */ (lowlight.highlightAuto(text, { subset }))
+    );
+    const { language, relevance } = tree.data ?? {};
+    if (language && (relevance ?? 0) >= MIN_AUTO_DETECT_RELEVANCE && isKnownLanguage(language)) {
+      return language;
+    }
+  } catch {
+    // Detection is best-effort; fall through to "leave it alone".
+  }
+  return null;
+}
+
 /**
  * Splits a hast root produced by lowlight into one run array per source line, carrying each
  * text node's nearest ancestor className down to it.

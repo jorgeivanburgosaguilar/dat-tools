@@ -1,10 +1,15 @@
 <script>
   import { untrack } from 'svelte';
-  import SplitView from '$lib/components/SplitView.svelte';
+  import DiffLayout from '$lib/components/DiffLayout.svelte';
   import CodeEditorPane from '$lib/components/CodeEditorPane.svelte';
   import DiffPane from '$lib/components/DiffPane.svelte';
   import { computeDiff, collapseRows, DEFAULT_ORIGINAL, DEFAULT_CHANGED } from '$lib/text-diff.js';
-  import { LANGUAGES, ensureHighlighter, highlightLines } from '$lib/syntax-highlight.js';
+  import {
+    LANGUAGES,
+    ensureHighlighter,
+    highlightLines,
+    detectLanguage
+  } from '$lib/syntax-highlight.js';
   import { mergeRuns } from '$lib/diff-render.js';
 
   /**
@@ -26,8 +31,9 @@
   let diff = $state(null);
 
   let language = $state('plain');
-  let showWhitespace = $state(false);
+  let languageIsManual = $state(false);
   let collapseUnchanged = $state(false);
+  let showSource = $state(false);
   let highlightLoading = $state(false);
 
   /** @type {import('$lib/syntax-highlight.js').Lowlight | null} */
@@ -54,6 +60,7 @@
     mode = 'diff';
     scrollTop = 0;
     scrollLeft = 0;
+    if (!languageIsManual) autoDetectLanguage();
   }
 
   function backToEdit() {
@@ -70,6 +77,7 @@
   function loadSample() {
     original = DEFAULT_ORIGINAL;
     changed = DEFAULT_CHANGED;
+    languageIsManual = false;
     if (mode === 'diff') diff = computeDiff(original, changed);
   }
 
@@ -78,6 +86,8 @@
     changed = '';
     mode = 'edit';
     diff = null;
+    showSource = false;
+    languageIsManual = false;
   }
 
   /** Kicks off the lowlight chunk fetch early so it can overlap the user picking a language. */
@@ -94,7 +104,29 @@
   /** @param {string} id */
   async function selectLanguage(id) {
     language = id;
+    languageIsManual = true;
     if (id !== 'plain') await preloadHighlighter();
+  }
+
+  /**
+   * Guesses a language from the current text when Find Difference is clicked and the user hasn't
+   * picked one manually. Fire-and-forget, same pattern as `preloadHighlighter()`; only ever runs
+   * from inside an explicit user action, never from module scope or an effect.
+   */
+  function autoDetectLanguage() {
+    const sample = original || changed;
+    if (!sample) return;
+    highlightLoading = true;
+    ensureHighlighter()
+      .then((instance) => {
+        lowlight = instance;
+        if (languageIsManual) return; // user picked one while the chunk was loading
+        const detected = detectLanguage(sample, instance);
+        if (detected) language = detected;
+      })
+      .finally(() => {
+        highlightLoading = false;
+      });
   }
 
   let highlightRunsOriginal = $derived.by(() =>
@@ -104,10 +136,10 @@
     diff ? highlightLines(diff.changedLines, language, lowlight) : []
   );
 
-  // Precomputed once per (diff, language, highlighter) change - not re-run when showWhitespace
-  // is toggled or the divider is dragged, since whitespace glyphs are applied at render time.
-  // A collapsed row's placeholder cells carry no line number and no segments, so mergeRuns
-  // naturally reduces to an empty span list for them - no special case needed here.
+  // Precomputed once per (diff, language, highlighter) change - whitespace glyphs are applied at
+  // render time, so this doesn't need to re-run when the divider is dragged or the pane layout
+  // changes. A collapsed row's placeholder cells carry no line number and no segments, so
+  // mergeRuns naturally reduces to an empty span list for them - no special case needed here.
   let renderRows = $derived.by(() => {
     if (!diff) return [];
     const rows = collapseUnchanged ? collapseRows(diff.rows, 3) : diff.rows;
@@ -137,145 +169,176 @@
 
   let leftCells = $derived(renderRows.map((r) => r.left));
   let rightCells = $derived(renderRows.map((r) => r.right));
+
+  // The raw-original pane reuses the already-merged left cells (no second diff or highlight
+  // pass): only the red/green diff coloring is stripped from each span, so syntax highlighting
+  // and structural filler/collapsed rows (which keep all panes aligned and scroll-locked) survive.
+  let sourceCells = $derived(
+    renderRows.map((r) => {
+      const cell = r.left;
+      return {
+        lineNumber: cell.lineNumber,
+        type:
+          cell.type === 'added' || cell.type === 'removed'
+            ? /** @type {'equal'} */ ('equal')
+            : cell.type,
+        hasEol: cell.hasEol,
+        spans: cell.spans.map((s) => ({ ...s, diff: /** @type {'equal'} */ ('equal') })),
+        count: cell.count
+      };
+    })
+  );
 </script>
 
-<SplitView firstLabel="Original" secondLabel="Changed">
-  {#snippet first()}
-    {#if mode === 'edit'}
-      <CodeEditorPane
-        label="Original"
-        bind:value={original}
-        placeholder="Paste the original text here…"
-      />
-    {:else}
-      <DiffPane
-        label="Original"
-        cells={leftCells}
-        {showWhitespace}
-        {scrollTop}
-        {scrollLeft}
-        onscroll={onPaneScroll}
-      />
-    {/if}
-  {/snippet}
+{#snippet originalEditor()}
+  <CodeEditorPane
+    label="Original"
+    bind:value={original}
+    placeholder="Paste the original text here…"
+  />
+{/snippet}
 
-  {#snippet second()}
-    {#if mode === 'edit'}
-      <CodeEditorPane
-        label="Changed"
-        bind:value={changed}
-        placeholder="Paste the changed text here…"
-      />
-    {:else}
-      <DiffPane
-        label="Changed"
-        cells={rightCells}
-        {showWhitespace}
-        {scrollTop}
-        {scrollLeft}
-        onscroll={onPaneScroll}
-      />
-    {/if}
-  {/snippet}
+{#snippet changedEditor()}
+  <CodeEditorPane label="Changed" bind:value={changed} placeholder="Paste the changed text here…" />
+{/snippet}
 
-  {#snippet actions()}
-    <select
-      value={language}
-      onfocus={preloadHighlighter}
-      onchange={(e) => selectLanguage(/** @type {HTMLSelectElement} */ (e.currentTarget).value)}
-      class="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
-    >
-      {#each LANGUAGES as lang (lang.id)}
-        <option value={lang.id}>{lang.label}</option>
-      {/each}
-    </select>
-    {#if highlightLoading}
-      <span class="text-xs text-gray-400 dark:text-gray-500">Loading…</span>
-    {/if}
+{#snippet sourcePane()}
+  <DiffPane
+    label="Source"
+    headerTitle="Original text, no diff highlighting"
+    cells={sourceCells}
+    {scrollTop}
+    {scrollLeft}
+    onscroll={onPaneScroll}
+  />
+{/snippet}
 
+{#snippet originalDiffPane()}
+  <DiffPane label="Original" cells={leftCells} {scrollTop} {scrollLeft} onscroll={onPaneScroll} />
+{/snippet}
+
+{#snippet changedDiffPane()}
+  <DiffPane label="Changed" cells={rightCells} {scrollTop} {scrollLeft} onscroll={onPaneScroll} />
+{/snippet}
+
+{#snippet primary()}
+  {#if mode === 'edit'}
     <button
-      onclick={() => (showWhitespace = !showWhitespace)}
-      aria-pressed={showWhitespace}
-      class="rounded px-2 py-1 text-xs font-medium transition-colors {showWhitespace
+      onclick={runDiff}
+      disabled={!canDiff}
+      class="rounded-md px-4 py-1.5 text-xs font-semibold transition-colors {canDiff
+        ? 'bg-green-600 text-white hover:bg-green-700'
+        : 'cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500'}"
+    >
+      Find Difference
+    </button>
+  {:else}
+    <button
+      onclick={backToEdit}
+      class="rounded-md border border-gray-200 px-4 py-1.5 text-xs font-semibold text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+    >
+      Edit Texts
+    </button>
+  {/if}
+{/snippet}
+
+{#snippet actions()}
+  <select
+    value={language}
+    onfocus={preloadHighlighter}
+    onchange={(e) => selectLanguage(/** @type {HTMLSelectElement} */ (e.currentTarget).value)}
+    class="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
+  >
+    {#each LANGUAGES as lang (lang.id)}
+      <option value={lang.id}>{lang.label}</option>
+    {/each}
+  </select>
+  {#if highlightLoading}
+    <span class="text-xs text-gray-400 dark:text-gray-500">Loading…</span>
+  {/if}
+
+  {#if mode === 'diff'}
+    <button
+      onclick={() => (collapseUnchanged = !collapseUnchanged)}
+      aria-pressed={collapseUnchanged}
+      class="rounded px-2 py-1 text-xs font-medium transition-colors {collapseUnchanged
         ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
         : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'}"
     >
-      Show whitespace
+      Collapse unchanged
     </button>
+  {/if}
 
-    {#if mode === 'diff'}
-      <button
-        onclick={() => (collapseUnchanged = !collapseUnchanged)}
-        aria-pressed={collapseUnchanged}
-        class="rounded px-2 py-1 text-xs font-medium transition-colors {collapseUnchanged
-          ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
-          : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'}"
-      >
-        Collapse unchanged
-      </button>
-    {/if}
+  <button
+    onclick={swapTexts}
+    title="Swap the Original and Changed text"
+    class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+  >
+    Swap texts
+  </button>
+  <button
+    onclick={loadSample}
+    class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+  >
+    Sample
+  </button>
+  <button
+    onclick={clearAll}
+    class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+  >
+    Clear
+  </button>
 
-    {#if mode === 'edit'}
-      <button
-        onclick={runDiff}
-        disabled={!canDiff}
-        class="rounded px-2 py-1 text-xs font-medium transition-colors {canDiff
-          ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
-          : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
-      >
-        Diff
-      </button>
+  {#if mode === 'diff'}
+    <button
+      onclick={() => (showSource = !showSource)}
+      aria-pressed={showSource}
+      title="Show the original text with no diff highlighting, as a third pane"
+      class="rounded px-2 py-1 text-xs font-medium transition-colors {showSource
+        ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
+        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'}"
+    >
+      Source pane
+    </button>
+  {/if}
+{/snippet}
+
+{#snippet status()}
+  {#if mode === 'edit'}
+    {original.split('\n').length} / {changed.split('\n').length} lines
+  {:else if diff}
+    {#if diff.stats.tooLarge}
+      Input is too large to diff (over 2,000,000 characters combined).
+    {:else if diff.stats.identical}
+      Texts are identical.
     {:else}
-      <button
-        onclick={backToEdit}
-        class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
-      >
-        Edit
-      </button>
-    {/if}
-
-    <button
-      onclick={swapTexts}
-      title="Swap the Original and Changed text"
-      class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
-    >
-      Swap texts
-    </button>
-    <button
-      onclick={loadSample}
-      class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
-    >
-      Sample
-    </button>
-    <button
-      onclick={clearAll}
-      class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
-    >
-      Clear
-    </button>
-  {/snippet}
-
-  {#snippet status()}
-    {#if mode === 'edit'}
-      {original.split('\n').length} / {changed.split('\n').length} lines
-    {:else if diff}
-      {#if diff.stats.tooLarge}
-        Input is too large to diff (over 2,000,000 characters combined).
-      {:else if diff.stats.identical}
-        Texts are identical.
-      {:else}
-        +{diff.stats.linesAdded} −{diff.stats.linesRemoved} lines · +{diff.stats.charsAdded} −{diff
-          .stats.charsRemoved} characters
-        {#if diff.stats.eolMismatch}
-          · line endings differ
-        {/if}
-        {#if diff.stats.trailingNewline.original !== diff.stats.trailingNewline.changed}
-          · trailing newline differs
-        {/if}
-        {#if diff.stats.aborted}
-          · diff was too complex and was simplified
-        {/if}
+      +{diff.stats.linesAdded} −{diff.stats.linesRemoved} lines · +{diff.stats.charsAdded} −{diff
+        .stats.charsRemoved} characters
+      {#if diff.stats.eolMismatch}
+        · line endings differ
+      {/if}
+      {#if diff.stats.trailingNewline.original !== diff.stats.trailingNewline.changed}
+        · trailing newline differs
+      {/if}
+      {#if diff.stats.aborted}
+        · diff was too complex and was simplified
       {/if}
     {/if}
-  {/snippet}
-</SplitView>
+  {/if}
+{/snippet}
+
+<DiffLayout
+  panes={mode === 'edit'
+    ? [
+        { id: 'original', label: 'Original', render: originalEditor },
+        { id: 'changed', label: 'Changed', render: changedEditor }
+      ]
+    : [
+        ...(showSource ? [{ id: 'source', label: 'Source', render: sourcePane }] : []),
+        { id: 'original', label: 'Original', render: originalDiffPane },
+        { id: 'changed', label: 'Changed', render: changedDiffPane }
+      ]}
+  {primary}
+  {actions}
+  {status}
+/>
