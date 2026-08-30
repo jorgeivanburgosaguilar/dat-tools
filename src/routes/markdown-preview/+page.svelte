@@ -1,13 +1,12 @@
 <script>
-  import { resolve } from '$app/paths';
+  import { resolve, asset } from '$app/paths';
   import MarkdownPreview from '$lib/components/MarkdownPreview.svelte';
   import { DEFAULT_CONTENT } from '$lib/markdown-preview.js';
-  import favicon from '$lib/assets/favicon-markdown-preview.svg';
 </script>
 
 <svelte:head>
   <title>Markdown Preview</title>
-  <link rel="icon" href={favicon} />
+  <link rel="icon" href={asset('/favicon-markdown-preview.svg')} type="image/svg+xml" />
 </svelte:head>
 
 <main class="flex h-screen flex-col overflow-hidden bg-white dark:bg-gray-900">
