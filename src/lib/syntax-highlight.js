@@ -210,3 +210,38 @@ export function highlightLines(lines, language, lowlight) {
     return lines.map((line) => (line.length === 0 ? [] : [{ text: line, className: null }]));
   }
 }
+
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+function escapeHtmlText(text) {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Renders one code string as an HTML string of `<span class="hljs-...">` runs (falling back to
+ * escaped plain text for un-highlighted runs), for callers that need highlighted HTML markup
+ * rather than the run arrays `highlightLines()` returns for direct `{#each}` rendering - e.g. a
+ * `marked` renderer producing a fenced-code block inside a larger sanitized HTML document. Output
+ * is always HTML-escaped; sanitizing it (DOMPurify keeps `span`/`class` by default) is still the
+ * caller's responsibility.
+ * @param {string} code
+ * @param {string} language
+ * @param {Lowlight | null} [lowlight]
+ * @returns {string}
+ */
+export function highlightToHtml(code, language, lowlight) {
+  const lines = highlightLines(code.split('\n'), language, lowlight);
+  return lines
+    .map((runs) =>
+      runs
+        .map((run) =>
+          run.className
+            ? `<span class="${run.className}">${escapeHtmlText(run.text)}</span>`
+            : escapeHtmlText(run.text)
+        )
+        .join('')
+    )
+    .join('\n');
+}

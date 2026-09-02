@@ -1,7 +1,7 @@
 {
   "name": "dat-tools",
   "private": true,
-  "version": "1.5",
+  "version": "1.6",
   "license": "The Unlicense",
   "type": "module",
   "scripts": {

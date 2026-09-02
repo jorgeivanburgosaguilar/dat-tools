@@ -85,6 +85,21 @@
         </h2>
         <p class="text-sm text-gray-600 dark:text-gray-400">Compare two texts side by side</p>
       </a>
+
+      <a
+        href={resolve('/agent-trajectory-viewer')}
+        class="group rounded-2xl border border-gray-200 bg-gray-50 p-6 transition-all hover:border-blue-400 hover:shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500"
+      >
+        <div class="mb-3 text-4xl">&#x1F9ED;</div>
+        <h2
+          class="mb-2 font-mono text-xl font-bold text-gray-900 group-hover:text-blue-600 dark:text-gray-100 dark:group-hover:text-blue-400"
+        >
+          Agent Trajectory Viewer
+        </h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400">
+          Navigate and inspect agent trajectory JSON logs
+        </p>
+      </a>
     </div>
 
     <div class="p-6 text-center">

@@ -20,7 +20,13 @@ export default defineConfig({
           name: 'client',
           browser: {
             enabled: true,
-            provider: playwright(),
+            // clipboard-write/-read: several tools (Markdown Preview, JSON Validator, and the
+            // Agent Trajectory Viewer's code blocks) have a "Copy" button backed by
+            // navigator.clipboard.writeText(); Chromium denies that call by default in an
+            // automated context, so tests covering it need the permission granted up front.
+            provider: playwright({
+              contextOptions: { permissions: ['clipboard-write', 'clipboard-read'] }
+            }),
             instances: [{ browser: 'chromium', headless: true }]
           },
           include: ['src/**/*.svelte.{test,spec}.{js,ts}', 'src/**/*.browser.{test,spec}.{js,ts}'],

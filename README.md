@@ -12,13 +12,14 @@ Ideal for teams working under strict NDAs or handling sensitive information.
 
 ## Tools
 
-| Tool                  | Description                | Status    |
-| --------------------- | -------------------------- | --------- |
-| Stopwatch             | Clean, ad-free timer       | Available |
-| JSON Parser/Validator | Parse and validate JSON    | Available |
-| Word Counter          | Count words and characters | Available |
-| Markdown Preview      | Write and preview markdown | Available |
-| Code/Text Diff        | Compare text side-by-side  | Available |
+| Tool                    | Description                         | Status    |
+| ----------------------- | ----------------------------------- | --------- |
+| Stopwatch               | Clean, ad-free timer                | Available |
+| JSON Parser/Validator   | Parse and validate JSON             | Available |
+| Word Counter            | Count words and characters          | Available |
+| Markdown Preview        | Write and preview markdown          | Available |
+| Code/Text Diff          | Compare text side-by-side           | Available |
+| Agent Trajectory Viewer | Navigate agent trajectory JSON logs | Available |
 
 ## Getting Started
 
