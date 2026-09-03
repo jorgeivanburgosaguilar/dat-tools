@@ -11,6 +11,8 @@
     detectLanguage
   } from '$lib/syntax-highlight.js';
   import { mergeRuns } from '$lib/diff-render.js';
+  import { maxRowHeights } from '$lib/line-gutter.js';
+  import { loadWrapPreference, saveWrapPreference } from '$lib/wrap-preference.js';
 
   /**
    * @typedef {Object} DiffCheckerProps
@@ -41,6 +43,26 @@
 
   let scrollTop = $state(0);
   let scrollLeft = $state(0);
+
+  let wrap = $state(untrack(() => loadWrapPreference('diff-checker')));
+
+  // Each diff-mode DiffPane reports its own natural (unclamped) row heights here, keyed by pane
+  // id; merged below into one array so a row pair stays level even when only one side wraps.
+  /** @type {Record<string, number[]>} */
+  let paneRowHeights = $state({});
+  let rowHeights = $derived(maxRowHeights(Object.values(paneRowHeights)));
+
+  $effect(() => {
+    saveWrapPreference('diff-checker', wrap);
+  });
+
+  /**
+   * @param {string} id
+   * @param {number[]} heights
+   */
+  function onPaneMeasure(id, heights) {
+    paneRowHeights = { ...paneRowHeights, [id]: heights };
+  }
 
   // Diffing is an explicit, user-triggered action (not $derived / not an $effect): typing must
   // never recompute the diff, and nothing here may run during SvelteKit's prerender pass either.
@@ -194,12 +216,18 @@
   <CodeEditorPane
     label="Original"
     bind:value={original}
+    bind:wrap
     placeholder="Paste the original text here…"
   />
 {/snippet}
 
 {#snippet changedEditor()}
-  <CodeEditorPane label="Changed" bind:value={changed} placeholder="Paste the changed text here…" />
+  <CodeEditorPane
+    label="Changed"
+    bind:value={changed}
+    bind:wrap
+    placeholder="Paste the changed text here…"
+  />
 {/snippet}
 
 {#snippet sourcePane()}
@@ -210,15 +238,36 @@
     {scrollTop}
     {scrollLeft}
     onscroll={onPaneScroll}
+    {wrap}
+    {rowHeights}
+    onmeasure={(heights) => onPaneMeasure('source', heights)}
   />
 {/snippet}
 
 {#snippet originalDiffPane()}
-  <DiffPane label="Original" cells={leftCells} {scrollTop} {scrollLeft} onscroll={onPaneScroll} />
+  <DiffPane
+    label="Original"
+    cells={leftCells}
+    {scrollTop}
+    {scrollLeft}
+    onscroll={onPaneScroll}
+    {wrap}
+    {rowHeights}
+    onmeasure={(heights) => onPaneMeasure('original', heights)}
+  />
 {/snippet}
 
 {#snippet changedDiffPane()}
-  <DiffPane label="Changed" cells={rightCells} {scrollTop} {scrollLeft} onscroll={onPaneScroll} />
+  <DiffPane
+    label="Changed"
+    cells={rightCells}
+    {scrollTop}
+    {scrollLeft}
+    onscroll={onPaneScroll}
+    {wrap}
+    {rowHeights}
+    onmeasure={(heights) => onPaneMeasure('changed', heights)}
+  />
 {/snippet}
 
 {#snippet primary()}
@@ -258,6 +307,16 @@
   {/if}
 
   {#if mode === 'diff'}
+    <button
+      onclick={() => (wrap = !wrap)}
+      aria-pressed={wrap}
+      title="Wrap long lines"
+      class="rounded px-2 py-1 text-xs font-medium transition-colors {wrap
+        ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
+        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'}"
+    >
+      Wrap
+    </button>
     <button
       onclick={() => (collapseUnchanged = !collapseUnchanged)}
       aria-pressed={collapseUnchanged}

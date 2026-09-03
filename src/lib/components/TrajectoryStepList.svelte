@@ -87,24 +87,24 @@
       role="option"
       aria-selected={index === selectedIndex}
       onclick={() => onselect(index)}
-      class="flex w-full flex-col gap-0.5 border-b border-gray-100 px-3 py-2 text-left text-xs transition-colors dark:border-gray-800 {index ===
+      class="flex w-full min-w-0 flex-col gap-0.5 border-b border-gray-100 px-3 py-2 text-left text-xs transition-colors dark:border-gray-800 {index ===
       selectedIndex
         ? 'bg-blue-50 dark:bg-blue-950/40'
         : 'hover:bg-gray-50 dark:hover:bg-gray-800/60'}"
     >
-      <span class="flex items-center gap-2">
+      <span class="flex min-w-0 items-center gap-2">
         <span class="font-mono font-semibold text-gray-400 dark:text-gray-500">#{step.stepId}</span>
         <span class="rounded px-1.5 py-0.5 font-medium {sourceClass(step.source)}"
           >{step.source}</span
         >
         {#if delta}<span class="font-mono text-gray-400 dark:text-gray-500">{delta}</span>{/if}
         {#if step.toolCalls.length > 0}
-          <span class="truncate font-mono text-gray-400 dark:text-gray-500"
+          <span class="min-w-0 truncate font-mono text-gray-400 dark:text-gray-500"
             >&#x1F527; {step.toolCalls.map((tc) => tc.functionName).join(', ')}</span
           >
         {/if}
       </span>
-      <span class="truncate text-gray-700 dark:text-gray-300">{stepSummary(step)}</span>
+      <span class="line-clamp-2 text-gray-700 dark:text-gray-300">{stepSummary(step)}</span>
     </button>
   {/each}
   {#if visibleIndices.length === 0}

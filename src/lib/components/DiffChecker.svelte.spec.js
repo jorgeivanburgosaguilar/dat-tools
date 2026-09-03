@@ -46,8 +46,28 @@ describe('DiffChecker', () => {
     await screen.getByRole('button', { name: 'Find Difference' }).click();
     const left = screen.container.querySelector('[data-pane="Original"]');
     const right = screen.container.querySelector('[data-pane="Changed"]');
-    const leftRows = left?.querySelectorAll('.h-5') ?? [];
-    const rightRows = right?.querySelectorAll('.h-5') ?? [];
+    const leftRows = left?.querySelectorAll('[data-diff-row]') ?? [];
+    const rightRows = right?.querySelectorAll('[data-diff-row]') ?? [];
+    expect(leftRows.length).toBeGreaterThan(0);
+    expect(leftRows.length).toBe(rightRows.length);
+  });
+
+  it('keeps the same row count on both panes after toggling Wrap on in diff mode', async () => {
+    // Actual measured row heights need real Tailwind layout (see the "locks vertical scroll" test
+    // below), which this component-only render doesn't have - so this only exercises the wiring:
+    // the Wrap toggle exists in diff mode, and switching it on doesn't change how many rows either
+    // pane renders (each pane still emits one row per cell, just with a different height style).
+    const screen = render(DiffChecker, {
+      initialOriginal: 'a\nb\nc',
+      initialChanged: 'a\nX\nc\nd'
+    });
+    await screen.getByRole('button', { name: 'Find Difference' }).click();
+    await screen.getByRole('button', { name: 'Wrap' }).click();
+
+    const left = screen.container.querySelector('[data-pane="Original"]');
+    const right = screen.container.querySelector('[data-pane="Changed"]');
+    const leftRows = left?.querySelectorAll('[data-diff-row]') ?? [];
+    const rightRows = right?.querySelectorAll('[data-diff-row]') ?? [];
     expect(leftRows.length).toBeGreaterThan(0);
     expect(leftRows.length).toBe(rightRows.length);
   });
@@ -186,8 +206,8 @@ describe('DiffChecker', () => {
     expect(source?.querySelector('.diff-char-added, .diff-char-removed')).toBeNull();
 
     const original = screen.container.querySelector('[data-pane="Original"]');
-    const sourceRows = source?.querySelectorAll('.h-5') ?? [];
-    const originalRows = original?.querySelectorAll('.h-5') ?? [];
+    const sourceRows = source?.querySelectorAll('[data-diff-row]') ?? [];
+    const originalRows = original?.querySelectorAll('[data-diff-row]') ?? [];
     expect(sourceRows.length).toBe(originalRows.length);
   });
 
