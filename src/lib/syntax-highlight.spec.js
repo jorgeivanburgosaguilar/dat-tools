@@ -4,7 +4,8 @@ import {
   ensureHighlighter,
   isKnownLanguage,
   highlightLines,
-  detectLanguage
+  detectLanguage,
+  highlightToHtml
 } from './syntax-highlight.js';
 
 describe('LANGUAGES', () => {
@@ -185,5 +186,34 @@ for user in users:
     const html =
       '<!DOCTYPE html>\n<html>\n<head><title>Test</title></head>\n<body></body>\n</html>';
     expect(detectLanguage(html, lowlight)).not.toBe('php-template');
+  });
+});
+
+describe('highlightToHtml', () => {
+  it('escapes <, > and & even with no highlighter', () => {
+    const html = highlightToHtml('<a> & <b>', 'plain', null);
+    expect(html).toBe('&lt;a&gt; &amp; &lt;b&gt;');
+  });
+
+  it('falls back to escaped plain text for an unknown language', async () => {
+    const lowlight = await ensureHighlighter();
+    const html = highlightToHtml('<script>', 'not-a-real-language', lowlight);
+    expect(html).toBe('&lt;script&gt;');
+  });
+
+  it('wraps highlighted runs of a real language in hljs- spans with escaped text', async () => {
+    const lowlight = await ensureHighlighter();
+    const html = highlightToHtml('const a = "<x>";', 'javascript', lowlight);
+    expect(html).toContain('class="hljs-');
+    expect(html).not.toContain('<x>');
+    expect(html).toContain('&lt;x&gt;');
+  });
+
+  it('joins multiple lines with a newline and preserves an empty line', async () => {
+    const lowlight = await ensureHighlighter();
+    const html = highlightToHtml('const a = 1;\n\nconst b = 2;', 'javascript', lowlight);
+    const lines = html.split('\n');
+    expect(lines).toHaveLength(3);
+    expect(lines[1]).toBe('');
   });
 });

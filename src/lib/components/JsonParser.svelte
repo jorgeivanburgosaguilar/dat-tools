@@ -1,8 +1,10 @@
 <script>
   import { untrack } from 'svelte';
   import { parseJson, countJsonStats, DEFAULT_CONTENT } from '$lib/json-parser.js';
+  import { loadWrapPreference, saveWrapPreference } from '$lib/wrap-preference.js';
   import JsonNode from '$lib/components/JsonNode.svelte';
   import SplitView from '$lib/components/SplitView.svelte';
+  import CodeEditorPane from '$lib/components/CodeEditorPane.svelte';
 
   /**
    * @typedef {Object} JsonParserProps
@@ -13,34 +15,16 @@
   let { initialContent = '' } = $props();
 
   let input = $state(untrack(() => initialContent));
+  let wrap = $state(untrack(() => loadWrapPreference('json-validator')));
 
   let copied = $state(false);
 
-  /** @type {HTMLTextAreaElement | null} */
-  let textareaEl = $state(null);
-  /** @type {HTMLDivElement | null} */
-  let gutterEl = $state(null);
-
-  let focused = $state(false);
-  let cursorLine = $state(1);
-  let cursorCol = $state(1);
-
   let parseResult = $derived(parseJson(input));
   let stats = $derived(countJsonStats(input));
-  let lineCount = $derived(stats.lines || 1);
-  let lineNumbers = $derived(Array.from({ length: lineCount }, (_, i) => i + 1));
 
-  function syncGutter() {
-    if (gutterEl && textareaEl) gutterEl.scrollTop = textareaEl.scrollTop;
-  }
-
-  function updateCursor() {
-    if (!textareaEl) return;
-    const pos = textareaEl.selectionStart;
-    const before = input.slice(0, pos);
-    cursorLine = (before.match(/\n/g) ?? []).length + 1;
-    cursorCol = pos - before.lastIndexOf('\n');
-  }
+  $effect(() => {
+    saveWrapPreference('json-validator', wrap);
+  });
 
   function loadSample() {
     input = DEFAULT_CONTENT;
@@ -72,18 +56,13 @@
 
 <SplitView>
   {#snippet first()}
-    <div
-      class="flex items-center justify-between border-b border-gray-200 px-3 py-2 dark:border-gray-700"
+    <CodeEditorPane
+      label="Input"
+      bind:value={input}
+      bind:wrap
+      placeholder="Paste your JSON here..."
     >
-      <span class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
-        >Input</span
-      >
-      <div class="flex items-center gap-3">
-        {#if focused}
-          <span class="inline-flex items-center text-xs text-gray-400 dark:text-gray-500"
-            >Ln {cursorLine}, Col {cursorCol}</span
-          >
-        {/if}
+      {#snippet headerExtra()}
         {#if input.trim()}
           <span class="flex items-center gap-1 text-xs font-medium">
             {#if parseResult.success}
@@ -95,36 +74,8 @@
             {/if}
           </span>
         {/if}
-      </div>
-    </div>
-    <div class="flex min-h-0 flex-1 overflow-hidden bg-white dark:bg-gray-900">
-      <!-- gutter -->
-      <div
-        bind:this={gutterEl}
-        aria-hidden="true"
-        class="overflow-hidden py-4 pr-2 pl-3 font-mono text-sm leading-5 text-gray-400 select-none dark:text-gray-500"
-      >
-        {#each lineNumbers as lineNum (lineNum)}
-          <div class="text-right">{lineNum}</div>
-        {/each}
-      </div>
-      <!-- editor -->
-      <textarea
-        bind:this={textareaEl}
-        bind:value={input}
-        onscroll={syncGutter}
-        onfocus={() => {
-          focused = true;
-          updateCursor();
-        }}
-        onblur={() => {
-          focused = false;
-        }}
-        onkeyup={updateCursor}
-        onclick={updateCursor}
-        class="flex-1 resize-none bg-transparent py-4 pr-4 font-mono text-sm leading-5 text-gray-900 outline-none placeholder:text-gray-400 dark:text-gray-100 dark:placeholder:text-gray-500"
-        placeholder="Paste your JSON here..."></textarea>
-    </div>
+      {/snippet}
+    </CodeEditorPane>
   {/snippet}
 
   {#snippet second()}

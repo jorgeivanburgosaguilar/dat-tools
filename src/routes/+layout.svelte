@@ -10,7 +10,8 @@
     '/word-counter': asset('/favicon-word-counter.svg'),
     '/markdown-preview': asset('/favicon-markdown-preview.svg'),
     '/json-validator': asset('/favicon-json-validator.svg'),
-    '/diff-checker': asset('/favicon-diff-checker.svg')
+    '/diff-checker': asset('/favicon-diff-checker.svg'),
+    '/agent-trajectory-viewer': asset('/favicon-agent-trajectory-viewer.svg')
   };
 
   const favicon = $derived(FAVICONS[page.route.id ?? ''] ?? asset('/favicon.svg'));
