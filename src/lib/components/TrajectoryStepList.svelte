@@ -26,6 +26,17 @@
   }
 
   /**
+   * @param {import('$lib/agent-trajectory.js').TrajectoryStep} step
+   */
+  function stepBorderClass(step) {
+    if (step.source === 'user') return 'border-l-4 border-l-blue-500';
+    if (step.level === 'err') return 'border-l-4 border-l-red-500';
+    if (step.level === 'warn') return 'border-l-4 border-l-amber-500';
+    if (step.isTaskComplete) return 'border-l-4 border-l-emerald-500';
+    return 'border-l-4 border-l-transparent';
+  }
+
+  /**
    * Roving selection over the currently visible (filtered) steps only, so arrow/j-k navigation
    * never lands on a hidden row. Keys are handled on the list container, not module-wide, so
    * typing in the search box is unaffected.
@@ -87,16 +98,36 @@
       role="option"
       aria-selected={index === selectedIndex}
       onclick={() => onselect(index)}
-      class="flex w-full min-w-0 flex-col gap-0.5 border-b border-gray-100 px-3 py-2 text-left text-[1em] transition-colors dark:border-gray-800 {index ===
-      selectedIndex
+      class="flex w-full min-w-0 flex-col gap-0.5 border-b border-gray-100 px-3 py-2 text-left text-[1em] transition-colors dark:border-gray-800 {stepBorderClass(
+        step
+      )} {index === selectedIndex
         ? 'bg-blue-50 dark:bg-blue-950/40'
         : 'hover:bg-gray-50 dark:hover:bg-gray-800/60'}"
     >
-      <span class="flex min-w-0 items-center gap-2">
+      <span class="flex min-w-0 flex-wrap items-center gap-2">
         <span class="font-mono font-semibold text-gray-400 dark:text-gray-500">#{step.stepId}</span>
         <span class="rounded px-1.5 py-0.5 font-medium {sourceClass(step.source)}"
           >{step.source}</span
         >
+        {#if step.source !== 'user'}
+          {#if step.level === 'err'}
+            <span
+              class="rounded bg-red-100 px-1.5 py-0.5 font-medium text-red-700 dark:bg-red-900/50 dark:text-red-300"
+              >error</span
+            >
+          {:else if step.level === 'warn'}
+            <span
+              class="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800 dark:bg-amber-900/50 dark:text-amber-300"
+              >warning</span
+            >
+          {/if}
+          {#if step.isTaskComplete}
+            <span
+              class="rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
+              >complete</span
+            >
+          {/if}
+        {/if}
         {#if delta}<span class="font-mono text-gray-400 dark:text-gray-500">{delta}</span>{/if}
         {#if step.toolCalls.length > 0}
           <span class="min-w-0 truncate font-mono text-gray-400 dark:text-gray-500"

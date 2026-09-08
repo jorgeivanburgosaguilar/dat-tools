@@ -3,6 +3,12 @@ import {
   collectMetadata,
   metricEntries,
   linkObservations,
+  splitObservation,
+  noticeLevel,
+  detectStepLevel,
+  isTaskCompleteStep,
+  recoverJsonFields,
+  parseStructuredMessage,
   normalizeTrajectory,
   stepSummary,
   deltaMs,
@@ -105,7 +111,17 @@ describe('linkObservations', () => {
         observations: []
       }
     ];
-    const results = [{ sourceCallId: 'call_1', content: 'output', metadata: [] }];
+    const results = /** @type {import('./agent-trajectory.js').ObservationResult[]} */ ([
+      {
+        sourceCallId: 'call_1',
+        content: 'output',
+        metadata: [],
+        notice: '',
+        marker: null,
+        terminal: 'output',
+        level: 'ok'
+      }
+    ]);
     const { toolCalls: linked, stepObservations } = linkObservations(toolCalls, results);
     expect(linked[0].observations).toEqual(results);
     expect(stepObservations).toEqual([]);
@@ -116,7 +132,17 @@ describe('linkObservations', () => {
       { toolCallId: 'call_1', functionName: 'a', codeArgs: [], metadata: [], observations: [] },
       { toolCallId: 'call_2', functionName: 'b', codeArgs: [], metadata: [], observations: [] }
     ];
-    const results = [{ sourceCallId: null, content: 'merged output', metadata: [] }];
+    const results = /** @type {import('./agent-trajectory.js').ObservationResult[]} */ ([
+      {
+        sourceCallId: null,
+        content: 'merged output',
+        metadata: [],
+        notice: '',
+        marker: null,
+        terminal: 'merged output',
+        level: 'ok'
+      }
+    ]);
     const { toolCalls: linked, stepObservations } = linkObservations(toolCalls, results);
     expect(linked[0].observations).toEqual([]);
     expect(linked[1].observations).toEqual([]);
@@ -127,7 +153,17 @@ describe('linkObservations', () => {
     const toolCalls = [
       { toolCallId: 'call_1', functionName: 'a', codeArgs: [], metadata: [], observations: [] }
     ];
-    const results = [{ sourceCallId: 'call_unknown', content: 'x', metadata: [] }];
+    const results = /** @type {import('./agent-trajectory.js').ObservationResult[]} */ ([
+      {
+        sourceCallId: 'call_unknown',
+        content: 'x',
+        metadata: [],
+        notice: '',
+        marker: null,
+        terminal: 'x',
+        level: 'ok'
+      }
+    ]);
     const { stepObservations } = linkObservations(toolCalls, results);
     expect(stepObservations).toEqual(results);
   });
@@ -136,8 +172,197 @@ describe('linkObservations', () => {
     const toolCalls = [
       { toolCallId: 'call_1', functionName: 'a', codeArgs: [], metadata: [], observations: [] }
     ];
-    linkObservations(toolCalls, [{ sourceCallId: 'call_1', content: 'x', metadata: [] }]);
+    linkObservations(
+      toolCalls,
+      /** @type {import('./agent-trajectory.js').ObservationResult[]} */ ([
+        {
+          sourceCallId: 'call_1',
+          content: 'x',
+          metadata: [],
+          notice: '',
+          marker: null,
+          terminal: 'x',
+          level: 'ok'
+        }
+      ])
+    );
     expect(toolCalls[0].observations).toEqual([]);
+  });
+});
+
+describe('splitObservation', () => {
+  it('splits notice prefix and terminal content when marker is found', () => {
+    const input =
+      'Previous response had warnings:\nNon-standard environment path\nNew Terminal Output:\nroot@sandbox:/# ls\n';
+    const result = splitObservation(input);
+    expect(result.notice).toBe('Previous response had warnings:\nNon-standard environment path');
+    expect(result.marker).toBe('New Terminal Output:');
+    expect(result.terminal).toBe('root@sandbox:/# ls\n');
+  });
+
+  it('handles content with no marker as pure terminal output', () => {
+    const input = 'root@sandbox:/# ls\nfile1 file2\n';
+    const result = splitObservation(input);
+    expect(result.notice).toBe('');
+    expect(result.marker).toBeNull();
+    expect(result.terminal).toBe(input);
+  });
+
+  it('handles parse error messages with no terminal marker as notice', () => {
+    const input = 'Previous response had parsing errors: unexpected token at 1:1';
+    const result = splitObservation(input);
+    expect(result.notice).toBe(input);
+    expect(result.marker).toBeNull();
+    expect(result.terminal).toBe('');
+  });
+});
+
+describe('noticeLevel', () => {
+  it('returns ok for empty notice', () => {
+    expect(noticeLevel('')).toBe('ok');
+  });
+
+  it('returns err for parse errors and ERROR strings', () => {
+    expect(noticeLevel('Previous response had parsing errors')).toBe('err');
+    expect(noticeLevel('Some notice\nERROR: Command failed')).toBe('err');
+  });
+
+  it('returns warn for warning notices', () => {
+    expect(noticeLevel('Previous response had warnings')).toBe('warn');
+    expect(noticeLevel('WARNING: Deprecated syntax')).toBe('warn');
+  });
+
+  it('returns ok for generic notices', () => {
+    expect(noticeLevel('Informational note: session restarted')).toBe('ok');
+  });
+});
+
+describe('detectStepLevel / isTaskCompleteStep', () => {
+  it('always returns ok for user source', () => {
+    const results = [
+      {
+        sourceCallId: null,
+        content: '',
+        notice: 'err',
+        marker: null,
+        terminal: '',
+        level: /** @type {const} */ ('err'),
+        metadata: []
+      }
+    ];
+    expect(detectStepLevel('user', results)).toBe('ok');
+  });
+
+  it('returns err if any observation result has err level', () => {
+    const results = [
+      {
+        sourceCallId: null,
+        content: '',
+        notice: 'err',
+        marker: null,
+        terminal: '',
+        level: /** @type {const} */ ('err'),
+        metadata: []
+      },
+      {
+        sourceCallId: null,
+        content: '',
+        notice: 'warn',
+        marker: null,
+        terminal: '',
+        level: /** @type {const} */ ('warn'),
+        metadata: []
+      }
+    ];
+    expect(detectStepLevel('agent', results)).toBe('err');
+  });
+
+  it('returns warn if observation result has warn level and no err', () => {
+    const results = [
+      {
+        sourceCallId: null,
+        content: '',
+        notice: 'warn',
+        marker: null,
+        terminal: '',
+        level: /** @type {const} */ ('warn'),
+        metadata: []
+      }
+    ];
+    expect(detectStepLevel('agent', results)).toBe('warn');
+  });
+
+  it('detects task complete tool call or property', () => {
+    expect(
+      isTaskCompleteStep(
+        [
+          {
+            toolCallId: '1',
+            functionName: 'mark_task_complete',
+            codeArgs: [],
+            metadata: [],
+            observations: []
+          }
+        ],
+        {}
+      )
+    ).toBe(true);
+    expect(isTaskCompleteStep([], { task_complete: true })).toBe(true);
+    expect(isTaskCompleteStep([], { is_task_complete: true })).toBe(true);
+    expect(isTaskCompleteStep([], {})).toBe(false);
+  });
+});
+
+describe('recoverJsonFields', () => {
+  it('recovers key/value pairs from truncated JSON', () => {
+    const text = '{"analysis": "The stray + 1 is the bug", "plan": "Rewrite calc.py",';
+    expect(recoverJsonFields(text)).toEqual([
+      { key: 'analysis', value: 'The stray + 1 is the bug' },
+      { key: 'plan', value: 'Rewrite calc.py' }
+    ]);
+  });
+
+  it('unescapes \\n and \\" inside recovered values', () => {
+    const text = '{"plan": "line one\\nline two, says \\"go\\""';
+    expect(recoverJsonFields(text)).toEqual([
+      { key: 'plan', value: 'line one\nline two, says "go"' }
+    ]);
+  });
+
+  it('returns an empty array when nothing is recoverable', () => {
+    expect(recoverJsonFields('not json at all')).toEqual([]);
+  });
+});
+
+describe('parseStructuredMessage', () => {
+  it('extracts top-level string fields from well-formed JSON', () => {
+    const result = parseStructuredMessage('{"analysis": "a", "plan": "b", "task_complete": false}');
+    expect(result.malformed).toBe(false);
+    expect(result.fields).toEqual([
+      { key: 'analysis', value: 'a' },
+      { key: 'plan', value: 'b' }
+    ]);
+  });
+
+  it('strips an outer fenced code block before parsing', () => {
+    const result = parseStructuredMessage('```json\n{"analysis": "a"}\n```');
+    expect(result.malformed).toBe(false);
+    expect(result.fields).toEqual([{ key: 'analysis', value: 'a' }]);
+  });
+
+  it('falls back to recovered fields and flags malformed on invalid JSON', () => {
+    const result = parseStructuredMessage('{"analysis": "a", "plan": "b",');
+    expect(result.malformed).toBe(true);
+    expect(result.fields).toEqual([
+      { key: 'analysis', value: 'a' },
+      { key: 'plan', value: 'b' }
+    ]);
+  });
+
+  it('returns no fields and malformed: false for plain prose', () => {
+    const result = parseStructuredMessage('Just a regular message.');
+    expect(result.malformed).toBe(false);
+    expect(result.fields).toEqual([]);
   });
 });
 
@@ -332,6 +557,10 @@ describe('normalizeTrajectory', () => {
     );
     // deliberately exercises metrics that omit cached_tokens
     expect(result.steps.some((s) => !s.metrics.some((m) => m.key === 'cached_tokens'))).toBe(true);
+    // deliberately exercises a malformed structured message paired with an error notice
+    const errorStep = result.steps.find((s) => s.level === 'err');
+    expect(errorStep?.messageMalformed).toBe(true);
+    expect(errorStep?.messageFields.length).toBeGreaterThan(0);
   });
 });
 
@@ -400,6 +629,48 @@ describe('trajectoryStats', () => {
     expect(stats.tools).toEqual(['bash_command']);
   });
 
+  it('counts warnings and errors correctly in trajectoryStats', () => {
+    const result = normalizeTrajectory({
+      steps: [
+        { step_id: 1, source: 'user', message: 'x' },
+        {
+          step_id: 2,
+          source: 'agent',
+          message: '',
+          observation: {
+            results: [
+              { content: 'Previous response had warnings:\nDeprecation\nNew Terminal Output:\n1' }
+            ]
+          }
+        },
+        {
+          step_id: 3,
+          source: 'agent',
+          message: '',
+          observation: {
+            results: [{ content: 'Previous response had parsing errors: bad json' }]
+          }
+        }
+      ]
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const stats = trajectoryStats(result);
+    expect(stats.warningCount).toBe(1);
+    expect(stats.errorCount).toBe(1);
+    expect(stats.issueCount).toBe(2);
+  });
+
+  it('counts one warning and one error in the bundled EXAMPLE_TRAJECTORY', () => {
+    const result = normalizeTrajectory(JSON.parse(EXAMPLE_TRAJECTORY));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const stats = trajectoryStats(result);
+    expect(stats.errorCount).toBe(1);
+    expect(stats.warningCount).toBe(1);
+    expect(stats.issueCount).toBe(2);
+  });
+
   it('prefers final_metrics for totals when present', () => {
     const result = normalizeTrajectory({ steps: [], final_metrics: { total_cost_usd: 9 } });
     expect(result.ok).toBe(true);
@@ -431,6 +702,7 @@ describe('buildSearchIndex / filterSteps', () => {
       {
         step_id: 2,
         source: 'agent',
+        reasoning_content: 'Let us check pytest',
         message: 'Investigating',
         tool_calls: [
           {
@@ -438,13 +710,30 @@ describe('buildSearchIndex / filterSteps', () => {
             function_name: 'bash_command',
             arguments: { keystrokes: 'pytest -q\n' }
           }
-        ]
+        ],
+        observation: {
+          results: [
+            { content: 'Previous response had warnings:\nslow run\nNew Terminal Output:\nok' }
+          ]
+        }
       },
-      { step_id: 3, source: 'agent', message: 'All done, marking complete' }
+      {
+        step_id: 3,
+        source: 'agent',
+        message: 'All done, marking complete',
+        observation: {
+          results: [{ content: 'Previous response had parsing errors: parse failure' }]
+        }
+      },
+      {
+        step_id: 4,
+        source: 'agent',
+        message: '{"analysis": "the fixture needs a wobblesnort adapter",'
+      }
     ]
   });
 
-  it('finds a step by a word only present in a tool call code argument', () => {
+  it('finds a step by a word only present in reasoning_content', () => {
     expect(trajectory.ok).toBe(true);
     if (!trajectory.ok) return;
     const index = buildSearchIndex(trajectory.steps);
@@ -466,6 +755,15 @@ describe('buildSearchIndex / filterSteps', () => {
     expect(filterSteps(trajectory.steps, index, { tool: 'bash_command' })).toEqual([1]);
   });
 
+  it('filters by issueFilter: warnings, errors, and issues', () => {
+    expect(trajectory.ok).toBe(true);
+    if (!trajectory.ok) return;
+    const index = buildSearchIndex(trajectory.steps);
+    expect(filterSteps(trajectory.steps, index, { issueFilter: 'warnings' })).toEqual([1]);
+    expect(filterSteps(trajectory.steps, index, { issueFilter: 'errors' })).toEqual([2]);
+    expect(filterSteps(trajectory.steps, index, { issueFilter: 'issues' })).toEqual([1, 2]);
+  });
+
   it('combines query and source filters', () => {
     expect(trajectory.ok).toBe(true);
     if (!trajectory.ok) return;
@@ -477,7 +775,14 @@ describe('buildSearchIndex / filterSteps', () => {
     expect(trajectory.ok).toBe(true);
     if (!trajectory.ok) return;
     const index = buildSearchIndex(trajectory.steps);
-    expect(filterSteps(trajectory.steps, index, {})).toEqual([0, 1, 2]);
+    expect(filterSteps(trajectory.steps, index, {})).toEqual([0, 1, 2, 3]);
+  });
+
+  it('finds a step by a word only present in a field recovered from a malformed message', () => {
+    expect(trajectory.ok).toBe(true);
+    if (!trajectory.ok) return;
+    const index = buildSearchIndex(trajectory.steps);
+    expect(filterSteps(trajectory.steps, index, { query: 'wobblesnort' })).toEqual([3]);
   });
 });
 
