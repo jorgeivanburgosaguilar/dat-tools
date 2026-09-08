@@ -185,7 +185,8 @@
 {#snippet stepsPane()}
   <div class="flex h-full flex-col">
     <div class="border-b border-gray-200 px-3 py-2 dark:border-gray-700">
-      <span class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
+      <span
+        class="text-[1em] font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
         >Steps</span
       >
     </div>
@@ -201,7 +202,8 @@
 {#snippet detailPane()}
   <div class="flex h-full flex-col">
     <div class="border-b border-gray-200 px-3 py-2 dark:border-gray-700">
-      <span class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
+      <span
+        class="text-[1em] font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
         >Step Detail</span
       >
     </div>
@@ -214,11 +216,11 @@
     type="search"
     placeholder="Search steps..."
     bind:value={shared.query}
-    class="w-36 rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-900 outline-none focus:border-blue-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+    class="w-36 rounded border border-gray-200 bg-white px-2 py-1 text-[1em] text-gray-900 outline-none focus:border-blue-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
   />
   <select
     bind:value={shared.sourceFilter}
-    class="rounded border border-gray-200 bg-white px-1.5 py-1 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
+    class="rounded border border-gray-200 bg-white px-1.5 py-1 text-[1em] text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
   >
     <option value="all">All sources</option>
     {#each Object.keys(stats?.bySource ?? {}) as source (source)}
@@ -227,7 +229,7 @@
   </select>
   <select
     bind:value={shared.toolFilter}
-    class="rounded border border-gray-200 bg-white px-1.5 py-1 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
+    class="rounded border border-gray-200 bg-white px-1.5 py-1 text-[1em] text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
   >
     <option value="all">All tools</option>
     {#each stats?.tools ?? [] as tool (tool)}
@@ -238,12 +240,12 @@
 
 {#snippet actions()}
   {#if popoutBlockedHint}
-    <span class="text-xs text-red-500 dark:text-red-400">Pop-up blocked by the browser</span>
+    <span class="text-[1em] text-red-500 dark:text-red-400">Pop-up blocked by the browser</span>
   {/if}
   {@render searchAndFilters()}
   <button
     onclick={reset}
-    class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+    class="rounded px-2 py-1 text-[1em] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
   >
     New JSON
   </button>
@@ -251,11 +253,13 @@
 
 {#snippet status()}
   {#if shared.trajectory}
-    Showing {visibleIndices.length} of {shared.trajectory.steps.length} steps
-    {#if stats && stats.totals.length > 0}
-      &middot;
-      {#each stats.totals as t, i (t.key)}{i > 0 ? ' · ' : ''}{t.key}: {t.display}{/each}
-    {/if}
+    <span class="text-[1em]">
+      Showing {visibleIndices.length} of {shared.trajectory.steps.length} steps
+      {#if stats && stats.totals.length > 0}
+        &middot;
+        {#each stats.totals as t, i (t.key)}{i > 0 ? ' · ' : ''}{t.key}: {t.display}{/each}
+      {/if}
+    </span>
   {/if}
 {/snippet}
 
@@ -270,7 +274,7 @@
     {#if !shared.trajectory}
       <!-- New JSON (which writes `trajectory`) is owner-only, so a satellite that outlives the
            owner's reset just waits rather than offering its own (nonexistent) loader. -->
-      <p class="p-4 text-sm text-gray-500 dark:text-gray-400">
+      <p class="p-4 text-[1.125em] text-gray-500 dark:text-gray-400">
         Waiting for the main window to load a trajectory…
       </p>
     {:else if satellitePaneId === 'steps'}
@@ -284,8 +288,8 @@
 {:else}
   <DiffLayout
     panes={[
-      { id: 'steps', label: 'Steps', render: stepsPane },
-      { id: 'detail', label: 'Detail', render: detailPane }
+      { id: 'detail', label: 'Detail', render: detailPane },
+      { id: 'steps', label: 'Steps', render: stepsPane }
     ].filter((p) => !poppedIds.includes(p.id))}
     onpopout={(id) => sync?.requestPopout(id)}
     {actions}

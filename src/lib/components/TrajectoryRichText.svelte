@@ -15,4 +15,4 @@
 </script>
 
 <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitized by DOMPurify in renderRichText -->
-<div class="markdown-body p-3 text-sm">{@html html}</div>
+<div class="markdown-body p-3 text-[1.125em]">{@html html}</div>

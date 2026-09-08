@@ -87,7 +87,7 @@
       role="option"
       aria-selected={index === selectedIndex}
       onclick={() => onselect(index)}
-      class="flex w-full min-w-0 flex-col gap-0.5 border-b border-gray-100 px-3 py-2 text-left text-xs transition-colors dark:border-gray-800 {index ===
+      class="flex w-full min-w-0 flex-col gap-0.5 border-b border-gray-100 px-3 py-2 text-left text-[1em] transition-colors dark:border-gray-800 {index ===
       selectedIndex
         ? 'bg-blue-50 dark:bg-blue-950/40'
         : 'hover:bg-gray-50 dark:hover:bg-gray-800/60'}"
@@ -108,7 +108,7 @@
     </button>
   {/each}
   {#if visibleIndices.length === 0}
-    <p class="p-4 text-center text-xs text-gray-400 dark:text-gray-500">
+    <p class="p-4 text-center text-[1em] text-gray-400 dark:text-gray-500">
       No steps match the current filters.
     </p>
   {/if}

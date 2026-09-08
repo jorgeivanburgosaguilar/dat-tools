@@ -18,11 +18,11 @@
 
 {#if entries.length > 0}
   <div class="space-y-1">
-    <h3 class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
+    <h3 class="text-[1em] font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
       {title}
     </h3>
     <dl
-      class="divide-y divide-gray-100 rounded border border-gray-200 text-xs dark:divide-gray-800 dark:border-gray-700"
+      class="divide-y divide-gray-100 rounded border border-gray-200 text-[1em] dark:divide-gray-800 dark:border-gray-700"
     >
       {#each entries as entry (entry.path)}
         <div class="flex flex-col gap-0.5 px-2 py-1.5 sm:flex-row sm:items-start sm:gap-3">
