@@ -36,7 +36,8 @@
     selectedIndex: 0,
     query: '',
     sourceFilter: 'all',
-    toolFilter: 'all'
+    toolFilter: 'all',
+    issueFilter: /** @type {'all' | 'issues' | 'errors' | 'warnings'} */ ('all')
   });
 
   // Not structured-cloneable, so never part of `shared` - a satellite loads its own instance (see
@@ -44,6 +45,9 @@
   /** @type {import('$lib/syntax-highlight.js').Lowlight | null} */
   let lowlight = $state(null);
   let highlightLoading = $state(false);
+
+  /** @type {HTMLInputElement | null} */
+  let searchInputEl = $state(null);
 
   // --- Pop-out sync -----------------------------------------------------------------------------
 
@@ -86,7 +90,8 @@
       selectedIndex: shared.selectedIndex,
       query: shared.query,
       sourceFilter: shared.sourceFilter,
-      toolFilter: shared.toolFilter
+      toolFilter: shared.toolFilter,
+      issueFilter: shared.issueFilter
     });
   });
 
@@ -150,7 +155,8 @@
       ? filterSteps(shared.trajectory.steps, searchIndex, {
           query: shared.query,
           source: shared.sourceFilter,
-          tool: shared.toolFilter
+          tool: shared.toolFilter,
+          issueFilter: shared.issueFilter
         })
       : []
   );
@@ -165,6 +171,32 @@
   );
   let selectedStep = $derived.by(() => shared.trajectory?.steps[effectiveSelectedIndex] ?? null);
 
+  let issueIndices = $derived.by(() => {
+    if (!shared.trajectory) return [];
+    return visibleIndices.filter((idx) => {
+      const step = shared.trajectory?.steps[idx];
+      return step?.level === 'err' || step?.level === 'warn';
+    });
+  });
+
+  function jumpToNextIssue() {
+    if (issueIndices.length === 0) return;
+    const current = effectiveSelectedIndex;
+    const next = issueIndices.find((idx) => idx > current);
+    shared.selectedIndex = next !== undefined ? next : issueIndices[0];
+  }
+
+  /** @param {KeyboardEvent} e */
+  function onWindowKeydown(e) {
+    // Guard on `searchInputEl` existing first - a Detail-only satellite window renders no search
+    // box at all, so there's nothing to focus and '/' should fall through untouched.
+    if (!searchInputEl || e.key !== '/' || document.activeElement === searchInputEl) return;
+    const tag = document.activeElement?.tagName.toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return;
+    e.preventDefault();
+    searchInputEl.focus();
+  }
+
   /** @param {import('$lib/agent-trajectory.js').TrajectoryLoadResult} result */
   function handleLoad(result) {
     shared.trajectory = result.trajectory;
@@ -173,6 +205,7 @@
     shared.query = '';
     shared.sourceFilter = 'all';
     shared.toolFilter = 'all';
+    shared.issueFilter = 'all';
   }
 
   function reset() {
@@ -181,6 +214,8 @@
     lowlight = null;
   }
 </script>
+
+<svelte:window onkeydown={onWindowKeydown} />
 
 {#snippet stepsPane()}
   <div class="flex h-full flex-col">
@@ -213,13 +248,25 @@
 
 {#snippet searchAndFilters()}
   <input
+    bind:this={searchInputEl}
     type="search"
     placeholder="Search steps..."
     bind:value={shared.query}
     class="w-36 rounded border border-gray-200 bg-white px-2 py-1 text-[1em] text-gray-900 outline-none focus:border-blue-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
   />
   <select
+    bind:value={shared.issueFilter}
+    aria-label="Filter by issue"
+    class="rounded border border-gray-200 bg-white px-1.5 py-1 text-[1em] text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
+  >
+    <option value="all">All steps</option>
+    <option value="issues">Warnings + errors</option>
+    <option value="errors">Errors only</option>
+    <option value="warnings">Warnings only</option>
+  </select>
+  <select
     bind:value={shared.sourceFilter}
+    aria-label="Filter by source"
     class="rounded border border-gray-200 bg-white px-1.5 py-1 text-[1em] text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
   >
     <option value="all">All sources</option>
@@ -229,6 +276,7 @@
   </select>
   <select
     bind:value={shared.toolFilter}
+    aria-label="Filter by tool"
     class="rounded border border-gray-200 bg-white px-1.5 py-1 text-[1em] text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
   >
     <option value="all">All tools</option>
@@ -236,6 +284,17 @@
       <option value={tool}>{tool}</option>
     {/each}
   </select>
+  <button
+    type="button"
+    onclick={jumpToNextIssue}
+    disabled={issueIndices.length === 0}
+    title="Jump to next warning or error step"
+    class="rounded px-2 py-1 text-[1em] font-medium transition-colors {issueIndices.length > 0
+      ? 'text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/40'
+      : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
+  >
+    Next issue &darr;
+  </button>
 {/snippet}
 
 {#snippet actions()}
@@ -255,6 +314,22 @@
   {#if shared.trajectory}
     <span class="text-[1em]">
       Showing {visibleIndices.length} of {shared.trajectory.steps.length} steps
+      {#if stats && stats.issueCount > 0}
+        &middot;
+        {#if stats.errorCount > 0}
+          <span class="font-medium text-red-600 dark:text-red-400">
+            {stats.errorCount}
+            {stats.errorCount === 1 ? 'error' : 'errors'}
+          </span>
+        {/if}
+        {#if stats.errorCount > 0 && stats.warningCount > 0}<span>, </span>{/if}
+        {#if stats.warningCount > 0}
+          <span class="font-medium text-amber-600 dark:text-amber-400">
+            {stats.warningCount}
+            {stats.warningCount === 1 ? 'warning' : 'warnings'}
+          </span>
+        {/if}
+      {/if}
       {#if stats && stats.totals.length > 0}
         &middot;
         {#each stats.totals as t, i (t.key)}{i > 0 ? ' · ' : ''}{t.key}: {t.display}{/each}

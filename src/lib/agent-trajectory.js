@@ -32,9 +32,23 @@
  */
 
 /**
+ * @typedef {'ok' | 'warn' | 'err'} IssueLevel
+ */
+
+/**
+ * @typedef {Object} MessageField
+ * @property {string} key
+ * @property {string} value
+ */
+
+/**
  * @typedef {Object} ObservationResult
  * @property {string | null} sourceCallId
  * @property {string} content
+ * @property {string} notice - Extracted harness or execution notice, if present.
+ * @property {string | null} marker - Matched terminal output marker, if present.
+ * @property {string} terminal - Terminal content payload.
+ * @property {IssueLevel} level - 'ok' | 'warn' | 'err'
  * @property {MetadataEntry[]} metadata
  */
 
@@ -61,7 +75,14 @@
  * @property {string | null} timestamp
  * @property {string} source
  * @property {string} message
+ * @property {MessageField[]} messageFields - Fields recovered from a structured (JSON-shaped)
+ *   message, empty when `message` is plain prose.
+ * @property {boolean} messageMalformed - True when `message` looked JSON-shaped but failed to
+ *   parse and `messageFields` was recovered on a best-effort basis instead.
+ * @property {string | null} reasoningContent
  * @property {string | null} modelName
+ * @property {IssueLevel} level
+ * @property {boolean} isTaskComplete
  * @property {ToolCall[]} toolCalls
  * @property {ObservationResult[]} stepObservations - Results with no matching tool call.
  * @property {MetadataEntry[]} observationMetadata - Unknown keys on the `observation` object itself.
@@ -98,6 +119,12 @@
  * @property {string} reason
  */
 
+export const TERMINAL_MARKERS = [
+  'New Terminal Output:',
+  'Current Terminal Screen:',
+  'Current terminal state:'
+];
+
 const KNOWN_TOP_KEYS = ['schema_version', 'session_id', 'agent', 'steps', 'final_metrics'];
 const KNOWN_AGENT_KEYS = ['name', 'version', 'model_name'];
 const KNOWN_STEP_KEYS = [
@@ -105,6 +132,8 @@ const KNOWN_STEP_KEYS = [
   'timestamp',
   'source',
   'message',
+  'reasoning_content',
+  'reasoning',
   'model_name',
   'tool_calls',
   'observation',
@@ -242,6 +271,87 @@ function normalizeToolCall(raw) {
 }
 
 /**
+ * Splits observation content into an optional harness notice prefix, matched marker, and terminal output.
+ * @param {string} content
+ * @returns {{ notice: string, marker: string | null, terminal: string }}
+ */
+export function splitObservation(content) {
+  const text = content || '';
+  let idx = -1;
+  /** @type {string | null} */
+  let marker = null;
+  for (const m of TERMINAL_MARKERS) {
+    const i = text.indexOf(m);
+    if (i !== -1 && (idx === -1 || i < idx)) {
+      idx = i;
+      marker = m;
+    }
+  }
+  if (idx === -1) {
+    if (/^\s*Previous response had/i.test(text)) {
+      return { notice: text.trim(), marker: null, terminal: '' };
+    }
+    return { notice: '', marker: null, terminal: text };
+  }
+  const m = /** @type {string} */ (marker);
+  return {
+    notice: text.slice(0, idx).trim(),
+    marker: m,
+    terminal: text.slice(idx + m.length).replace(/^\n/, '')
+  };
+}
+
+/**
+ * Classifies an observation notice string into 'err', 'warn', or 'ok'.
+ * @param {string} notice
+ * @returns {IssueLevel}
+ */
+export function noticeLevel(notice) {
+  if (!notice) return 'ok';
+  if (/^Previous response had parsing errors/i.test(notice) || /(^|\n)\s*ERROR/i.test(notice)) {
+    return 'err';
+  }
+  if (/^Previous response had warnings/i.test(notice) || /(^|\n)\s*WARNINGS?/i.test(notice)) {
+    return 'warn';
+  }
+  return 'ok';
+}
+
+/**
+ * @param {string} source
+ * @param {ObservationResult[]} results
+ * @returns {IssueLevel}
+ */
+export function detectStepLevel(source, results) {
+  if (source === 'user') return 'ok';
+  let level = /** @type {IssueLevel} */ ('ok');
+  for (const res of results) {
+    if (res.level === 'err') return 'err';
+    if (res.level === 'warn') level = 'warn';
+  }
+  return level;
+}
+
+/**
+ * @param {ToolCall[]} toolCalls
+ * @param {Record<string, unknown>} rawStep
+ * @returns {boolean}
+ */
+export function isTaskCompleteStep(toolCalls, rawStep) {
+  if (
+    toolCalls.some(
+      (c) => c.functionName === 'mark_task_complete' || c.functionName === 'task_complete'
+    )
+  ) {
+    return true;
+  }
+  if (rawStep && (rawStep.task_complete === true || rawStep.is_task_complete === true)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * @param {unknown} raw
  * @returns {{ results: ObservationResult[], metadata: MetadataEntry[] }}
  */
@@ -257,9 +367,15 @@ function normalizeObservation(raw) {
         : resultObj.content !== undefined
           ? stringifyValue(resultObj.content)
           : '';
+    const parts = splitObservation(content);
+    const level = noticeLevel(parts.notice);
     return {
       sourceCallId: typeof resultObj.source_call_id === 'string' ? resultObj.source_call_id : null,
       content,
+      notice: parts.notice,
+      marker: parts.marker,
+      terminal: parts.terminal,
+      level,
       metadata: collectMetadata(resultObj, KNOWN_OBSERVATION_RESULT_KEYS)
     };
   });
@@ -292,6 +408,74 @@ export function linkObservations(toolCalls, results) {
 }
 
 /**
+ * Strips one outer fenced code block (```lang\n...\n```), greedy to the *last* fence so a message
+ * whose own content contains nested fences still has just the outer wrapper removed. Returns the
+ * input unchanged when there is no outer fence.
+ * @param {string} text
+ * @returns {string}
+ */
+function stripOuterFence(text) {
+  const match = text.match(/^```[a-zA-Z]*\s*\n([\s\S]*)\n?```\s*$/);
+  return match ? match[1].trim() : text;
+}
+
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+function unescapeLoose(text) {
+  return text
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t')
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\');
+}
+
+/**
+ * Best-effort extraction of top-level `"key": "value"` string pairs from JSON that failed to
+ * parse, so a truncated or malformed structured message is still readable instead of an opaque
+ * blob. Generic over key names - no schema assumptions about which fields exist.
+ * @param {string} text
+ * @returns {MessageField[]}
+ */
+export function recoverJsonFields(text) {
+  /** @type {MessageField[]} */
+  const fields = [];
+  const pattern = /"([^"\\]+)"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    fields.push({ key: match[1], value: unescapeLoose(match[2]) });
+  }
+  return fields;
+}
+
+/**
+ * Parses a step message that may be a plain-prose string or a JSON-shaped object (optionally
+ * wrapped in a fenced code block). Well-formed JSON yields its top-level string fields; malformed
+ * JSON falls back to a best-effort field recovery so the step stays readable. Plain prose is left
+ * untouched (empty `fields`) and renders exactly as before.
+ * @param {string} message
+ * @returns {{ fields: MessageField[], malformed: boolean }}
+ */
+export function parseStructuredMessage(message) {
+  const text = stripOuterFence((message || '').trim());
+  if (!text.startsWith('{')) return { fields: [], malformed: false };
+  try {
+    const parsed = JSON.parse(text);
+    /** @type {MessageField[]} */
+    const fields = [];
+    if (parsed && typeof parsed === 'object') {
+      for (const [key, value] of Object.entries(parsed)) {
+        if (typeof value === 'string') fields.push({ key, value });
+      }
+    }
+    return { fields, malformed: false };
+  } catch {
+    return { fields: recoverJsonFields(text), malformed: true };
+  }
+}
+
+/**
  * @param {unknown} raw
  * @param {number} index
  * @returns {TrajectoryStep}
@@ -302,10 +486,23 @@ function normalizeStep(raw, index) {
   const timestamp = typeof obj.timestamp === 'string' ? obj.timestamp : null;
   const source = typeof obj.source === 'string' ? obj.source : 'unknown';
   const message = typeof obj.message === 'string' ? obj.message : '';
+  const { fields: messageFields, malformed: messageMalformed } = parseStructuredMessage(message);
+  const reasoningContent =
+    typeof obj.reasoning_content === 'string'
+      ? obj.reasoning_content
+      : typeof obj.reasoning === 'string'
+        ? obj.reasoning
+        : null;
   const modelName = typeof obj.model_name === 'string' ? obj.model_name : null;
   const toolCallsRaw = Array.isArray(obj.tool_calls) ? obj.tool_calls.map(normalizeToolCall) : [];
   const observation = normalizeObservation(obj.observation);
   const { toolCalls, stepObservations } = linkObservations(toolCallsRaw, observation.results);
+  // Deliberately not folded into `level`: a malformed message on step N is normally paired with
+  // a harness notice on step N+1 reporting the same failure, so counting both here would
+  // double-count one problem in `trajectoryStats()`'s error/warning totals. `messageMalformed`
+  // still surfaces visually via a badge - see TrajectoryStepDetail.svelte.
+  const level = detectStepLevel(source, observation.results);
+  const isTaskComplete = isTaskCompleteStep(toolCalls, obj);
   const metrics = metricEntries(obj.metrics);
   const metadata = collectMetadata(obj, KNOWN_STEP_KEYS);
   return {
@@ -313,7 +510,12 @@ function normalizeStep(raw, index) {
     timestamp,
     source,
     message,
+    messageFields,
+    messageMalformed,
+    reasoningContent,
     modelName,
+    level,
+    isTaskComplete,
     toolCalls,
     stepObservations,
     observationMetadata: observation.metadata,
@@ -444,6 +646,9 @@ export function formatDelta(ms) {
  * @property {Record<string, number>} bySource
  * @property {string[]} tools - Sorted, de-duplicated tool (function) names, for a filter dropdown.
  * @property {Record<string, number>} byTool
+ * @property {number} errorCount
+ * @property {number} warningCount
+ * @property {number} issueCount
  * @property {MetricEntry[]} totals - `finalMetrics` when present, else summed from per-step metrics.
  */
 
@@ -456,11 +661,16 @@ export function trajectoryStats(trajectory) {
   const bySource = {};
   /** @type {Record<string, number>} */
   const byTool = {};
+  let errorCount = 0;
+  let warningCount = 0;
   const sums = { prompt_tokens: 0, completion_tokens: 0, cached_tokens: 0, cost_usd: 0 };
   let hasMetrics = false;
 
   for (const step of trajectory.steps) {
     bySource[step.source] = (bySource[step.source] ?? 0) + 1;
+    if (step.level === 'err') errorCount++;
+    else if (step.level === 'warn') warningCount++;
+
     for (const tc of step.toolCalls) {
       byTool[tc.functionName] = (byTool[tc.functionName] ?? 0) + 1;
     }
@@ -488,26 +698,38 @@ export function trajectoryStats(trajectory) {
     bySource,
     tools: Object.keys(byTool).sort(),
     byTool,
+    errorCount,
+    warningCount,
+    issueCount: errorCount + warningCount,
     totals
   };
 }
 
 /**
- * Builds one lowercased search haystack per step (message, tool call code arguments, and
- * observation content), computed once per load so filtering ~100 steps on every keystroke is a
- * cheap substring scan rather than a re-walk of the whole tree.
+ * Builds one lowercased search haystack per step (message, fields recovered from a structured
+ * message, reasoning, tool call code arguments, and observation content / notices), computed once
+ * per load so filtering ~100 steps on every keystroke is a cheap substring scan rather than a
+ * re-walk of the whole tree.
  * @param {TrajectoryStep[]} steps
  * @returns {string[]}
  */
 export function buildSearchIndex(steps) {
   return steps.map((step) => {
     const parts = [step.message];
+    for (const field of step.messageFields) parts.push(field.value);
+    if (step.reasoningContent) parts.push(step.reasoningContent);
     for (const tc of step.toolCalls) {
       parts.push(tc.functionName);
       for (const arg of tc.codeArgs) parts.push(arg.code);
-      for (const obs of tc.observations) parts.push(obs.content);
+      for (const obs of tc.observations) {
+        if (obs.notice) parts.push(obs.notice);
+        parts.push(obs.terminal || obs.content);
+      }
     }
-    for (const obs of step.stepObservations) parts.push(obs.content);
+    for (const obs of step.stepObservations) {
+      if (obs.notice) parts.push(obs.notice);
+      parts.push(obs.terminal || obs.content);
+    }
     return parts.join('\n').toLowerCase();
   });
 }
@@ -517,6 +739,7 @@ export function buildSearchIndex(steps) {
  * @property {string} [query]
  * @property {string} [source] - 'all' or an exact `step.source` value.
  * @property {string} [tool] - 'all' or an exact tool call function name.
+ * @property {'all' | 'issues' | 'errors' | 'warnings'} [issueFilter]
  */
 
 /**
@@ -526,13 +749,16 @@ export function buildSearchIndex(steps) {
  * @returns {number[]} Indices into `steps` that match every active filter.
  */
 export function filterSteps(steps, searchIndex, filters = {}) {
-  const { query = '', source = 'all', tool = 'all' } = filters;
+  const { query = '', source = 'all', tool = 'all', issueFilter = 'all' } = filters;
   const q = query.trim().toLowerCase();
   /** @type {number[]} */
   const matches = [];
   steps.forEach((step, i) => {
     if (source !== 'all' && step.source !== source) return;
     if (tool !== 'all' && !step.toolCalls.some((tc) => tc.functionName === tool)) return;
+    if (issueFilter === 'errors' && step.level !== 'err') return;
+    if (issueFilter === 'warnings' && step.level !== 'warn') return;
+    if (issueFilter === 'issues' && step.level !== 'err' && step.level !== 'warn') return;
     if (q && !searchIndex[i]?.includes(q)) return;
     matches.push(i);
   });
@@ -543,9 +769,11 @@ export function filterSteps(steps, searchIndex, filters = {}) {
  * A small, fictional trajectory bundled for the "Load example" button. Not derived from - and
  * deliberately not shaped like a copy of - any real trajectory file; it exists to exercise every
  * renderer at once: a user step with only a message, markdown in an agent message (heading,
- * list, bold, fenced code), a step with two tool calls sharing one observation that has no
- * `source_call_id`, metrics that omit `cached_tokens`, and unknown fields at both the trajectory
- * and step level so the generic metadata rendering is visible without loading a real file.
+ * list, bold, fenced code), a step with reasoning content, a step with a warning notice in
+ * observation, a step with a malformed (truncated-JSON) message paired with an error notice, a
+ * step with two tool calls sharing one observation that has no `source_call_id`, metrics that
+ * omit `cached_tokens`, and unknown fields at both the trajectory and step level so the generic
+ * metadata rendering is visible without loading a real file.
  */
 export const EXAMPLE_TRAJECTORY = JSON.stringify(
   {
@@ -575,6 +803,9 @@ export const EXAMPLE_TRAJECTORY = JSON.stringify(
         timestamp: '2026-01-01T00:00:01.500000+00:00',
         source: 'agent',
         model_name: 'claude-example',
+        reasoning_content:
+          'The user reported a bug in `calc.py` where `add(2, 2)` returns 5 instead of 4. ' +
+          'I should inspect `calc.py` to identify the implementation mistake.',
         message:
           '## Analysis\n\nThe repository has one module, `calc.py`, with a single `add` function. ' +
           "Let's look at it before making a change.\n\n" +
@@ -599,7 +830,45 @@ export const EXAMPLE_TRAJECTORY = JSON.stringify(
       },
       {
         step_id: 3,
-        timestamp: '2026-01-01T00:00:03.100000+00:00',
+        timestamp: '2026-01-01T00:00:02.500000+00:00',
+        source: 'agent',
+        model_name: 'claude-example',
+        message: 'Checking for any existing virtual environment or dependencies.',
+        tool_calls: [
+          {
+            tool_call_id: 'call_1_2',
+            function_name: 'bash_command',
+            arguments: { keystrokes: 'which pytest\n', duration: 0.1 }
+          }
+        ],
+        observation: {
+          results: [
+            {
+              source_call_id: 'call_1_2',
+              content:
+                'Previous response had warnings:\nNon-standard environment path detected\nNew Terminal Output:\n/usr/local/bin/pytest\n'
+            }
+          ]
+        },
+        metrics: { prompt_tokens: 420, completion_tokens: 45, cost_usd: 0.00018 }
+      },
+      {
+        step_id: 4,
+        timestamp: '2026-01-01T00:00:03.200000+00:00',
+        source: 'agent',
+        model_name: 'claude-example',
+        message:
+          '{"analysis": "The stray + 1 is the bug", "plan": "Rewrite calc.py and re-run pytest",',
+        observation: {
+          results: [
+            { content: 'Previous response had parsing errors: unterminated object at line 1' }
+          ]
+        },
+        metrics: { prompt_tokens: 388, completion_tokens: 52, cost_usd: 0.0002 }
+      },
+      {
+        step_id: 5,
+        timestamp: '2026-01-01T00:00:03.800000+00:00',
         source: 'agent',
         model_name: 'claude-example',
         message:
@@ -631,8 +900,8 @@ export const EXAMPLE_TRAJECTORY = JSON.stringify(
         metrics: { prompt_tokens: 640, completion_tokens: 140, cost_usd: 0.00038 }
       },
       {
-        step_id: 4,
-        timestamp: '2026-01-01T00:00:04.000000+00:00',
+        step_id: 6,
+        timestamp: '2026-01-01T00:00:04.500000+00:00',
         source: 'agent',
         model_name: 'claude-example',
         message: 'All tests pass. Marking the task complete.',
@@ -656,10 +925,10 @@ export const EXAMPLE_TRAJECTORY = JSON.stringify(
       }
     ],
     final_metrics: {
-      total_prompt_tokens: 1662,
-      total_completion_tokens: 254,
+      total_prompt_tokens: 2470,
+      total_completion_tokens: 351,
       total_cached_tokens: 150,
-      total_cost_usd: 0.00088
+      total_cost_usd: 0.00126
     }
   },
   null,
