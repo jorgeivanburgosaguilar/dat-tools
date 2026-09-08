@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import DiffLayoutHarness from './DiffLayoutHarness.svelte';
 
@@ -59,5 +59,48 @@ describe('DiffLayout', () => {
 
     await screen.getByRole('button', { name: 'Split' }).click();
     expect(paneOrder(screen.container)).toEqual(['pane-a', 'pane-b', 'pane-c']);
+  });
+
+  describe('onpopout', () => {
+    it('does not render pop-out buttons when onpopout is omitted', async () => {
+      const screen = render(DiffLayoutHarness, { paneCount: 2 });
+      await expect
+        .element(screen.getByRole('button', { name: /Open A in a new window/ }))
+        .not.toBeInTheDocument();
+    });
+
+    it('renders one pop-out button per pane when onpopout is provided', async () => {
+      const onpopout = vi.fn();
+      const screen = render(DiffLayoutHarness, { paneCount: 3, onpopout });
+      await expect
+        .element(screen.getByRole('button', { name: 'Open A in a new window' }))
+        .toBeVisible();
+      await expect
+        .element(screen.getByRole('button', { name: 'Open B in a new window' }))
+        .toBeVisible();
+      await expect
+        .element(screen.getByRole('button', { name: 'Open C in a new window' }))
+        .toBeVisible();
+    });
+
+    it('calls onpopout with the clicked pane id', async () => {
+      const onpopout = vi.fn();
+      const screen = render(DiffLayoutHarness, { paneCount: 2, onpopout });
+      await screen.getByRole('button', { name: 'Open B in a new window' }).click();
+      expect(onpopout).toHaveBeenCalledWith('b');
+    });
+
+    it('hides pop-out buttons once only one pane remains', async () => {
+      const onpopout = vi.fn();
+      const screen = render(DiffLayoutHarness, { paneCount: 2, onpopout });
+      await screen.getByRole('button', { name: 'Open B in a new window' }).click();
+
+      // The harness doesn't remove panes on its own - simulate what the real parent does (filter
+      // the popped pane out of `panes`) by re-rendering with a single-pane count.
+      await screen.rerender({ paneCount: 1, onpopout });
+      await expect
+        .element(screen.getByRole('button', { name: /Open .* in a new window/ }))
+        .not.toBeInTheDocument();
+    });
   });
 });

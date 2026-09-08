@@ -1,168 +1,266 @@
 <script>
-  import { untrack } from 'svelte';
+  import { untrack, onMount } from 'svelte';
   import { parseJson, countJsonStats, DEFAULT_CONTENT } from '$lib/json-parser.js';
   import { loadWrapPreference, saveWrapPreference } from '$lib/wrap-preference.js';
-  import JsonNode from '$lib/components/JsonNode.svelte';
+  import { createPopoutSync } from '$lib/popout-sync.js';
   import SplitView from '$lib/components/SplitView.svelte';
   import CodeEditorPane from '$lib/components/CodeEditorPane.svelte';
+  import JsonOutputPane from '$lib/components/JsonOutputPane.svelte';
+  import PopoutButton from '$lib/components/PopoutButton.svelte';
+  import PopoutSatelliteBar from '$lib/components/PopoutSatelliteBar.svelte';
+
+  const TOOL = 'json-validator';
 
   /**
    * @typedef {Object} JsonParserProps
    * @property {string} [initialContent]
+   * @property {(satellite: boolean, paneLabel?: string) => void} [onsatellite] - Fired once this
+   *   window's role is known, so the route page can hide its "Back to Tools" header chrome in a
+   *   satellite window and title the window/tab after the pane it's showing.
    */
 
   /** @type {JsonParserProps} */
-  let { initialContent = '' } = $props();
+  let { initialContent = '', onsatellite = () => {} } = $props();
 
-  let input = $state(untrack(() => initialContent));
-  let wrap = $state(untrack(() => loadWrapPreference('json-validator')));
+  // Grouped into one $state object (rather than separate `let`s) so `applyPatch` from `popout.js`
+  // can mutate it directly by key - see popout-sync.js's doc comment on why the sync layer owns no
+  // state of its own. Both the owner and a satellite declare this with the same shape; a satellite
+  // starts with defaults and gets the real values from the owner's handshake `state` reply.
+  let shared = $state({
+    input: untrack(() => initialContent),
+    wrap: untrack(() => loadWrapPreference('json-validator'))
+  });
 
   let copied = $state(false);
 
-  let parseResult = $derived(parseJson(input));
-  let stats = $derived(countJsonStats(input));
+  // Pure functions of shared.input - recomputed independently in every window (owner or either
+  // satellite), since `shared.input` itself is kept in sync everywhere regardless of which pane a
+  // given window is displaying (applyPatch matches by key, not by pane).
+  let parseResult = $derived(parseJson(shared.input));
+  let stats = $derived(countJsonStats(shared.input));
+
+  // --- Pop-out sync -----------------------------------------------------------------------------
+
+  /** @type {ReturnType<typeof createPopoutSync> | null} */
+  let sync = null;
+  let syncReady = $state(false);
+  // Set from `sync.isSatelliteRequest` as soon as `sync` exists - see popout-sync.js's doc comment
+  // on why ownership checks must gate on this, not merely on `isSatellite`.
+  let isSatelliteRequest = $state(false);
+
+  /** Owner only: pane ids ('input' | 'output') currently confirmed popped out. */
+  let poppedIds = $state(/** @type {string[]} */ ([]));
+  /** Whether the owner's handshake reply has arrived and this window is showing just one pane. */
+  let isSatellite = $state(false);
+  /** Satellite only: which pane this window is showing. */
+  let satellitePaneId = $state(/** @type {'input' | 'output' | null} */ (null));
+  /** Satellite only: whether the owner window is currently reachable. */
+  let connected = $state(false);
+  let popoutBlockedHint = $state(false);
+
+  /** Whether this window is allowed to broadcast at all - see popout-sync.js's doc comment: a
+   * satellite must send nothing until its handshake snapshot has actually arrived, or it broadcasts
+   * its still-default `shared` and clobbers the real value moments before it arrives. */
+  let canSend = $derived(syncReady && (isSatelliteRequest ? isSatellite : true));
+
+  /** @param {string} id */
+  function hostsPane(id) {
+    return isSatelliteRequest ? isSatellite && satellitePaneId === id : !poppedIds.includes(id);
+  }
+
+  let hostsInput = $derived(hostsPane('input'));
+  let canFormat = $derived(hostsInput && parseResult.success);
+
+  let splitPoppedId = $derived(
+    /** @type {'first' | 'second' | null} */ (
+      poppedIds.includes('input') ? 'first' : poppedIds.includes('output') ? 'second' : null
+    )
+  );
 
   $effect(() => {
-    saveWrapPreference('json-validator', wrap);
+    if (!canSend || !hostsInput) return;
+    sync?.send({ input: shared.input, wrap: shared.wrap });
+  });
+
+  $effect(() => {
+    if (!hostsInput) return;
+    saveWrapPreference('json-validator', shared.wrap);
+  });
+
+  onMount(() => {
+    sync = createPopoutSync({
+      tool: TOOL,
+      shared,
+      callbacks: {
+        onSatelliteReady: (paneId) => {
+          isSatellite = true;
+          satellitePaneId = /** @type {'input' | 'output'} */ (paneId);
+          onsatellite(true, paneId === 'input' ? 'Input' : 'Output');
+        },
+        onConnectionChange: (value) => {
+          connected = value;
+        },
+        onOwnerPoppedChange: (ids) => {
+          poppedIds = ids;
+        },
+        onPopoutBlocked: () => {
+          popoutBlockedHint = true;
+          setTimeout(() => (popoutBlockedHint = false), 4000);
+        }
+      }
+    });
+    isSatelliteRequest = sync.isSatelliteRequest;
+    syncReady = true;
+
+    return () => {
+      sync?.destroy();
+    };
   });
 
   function loadSample() {
-    input = DEFAULT_CONTENT;
+    if (!hostsInput) return;
+    shared.input = DEFAULT_CONTENT;
   }
 
   function formatJson() {
-    if (parseResult.success) {
-      input = parseResult.formatted;
-    }
+    if (!hostsInput || !parseResult.success) return;
+    shared.input = parseResult.formatted;
   }
 
   function minifyJson() {
-    if (parseResult.success) {
-      input = parseResult.minified;
-    }
+    if (!hostsInput || !parseResult.success) return;
+    shared.input = parseResult.minified;
   }
 
   function clear() {
-    input = '';
+    if (!hostsInput) return;
+    shared.input = '';
   }
 
   async function copyInput() {
-    if (!input) return;
-    await navigator.clipboard.writeText(input);
+    if (!shared.input) return;
+    await navigator.clipboard.writeText(shared.input);
     copied = true;
     setTimeout(() => (copied = false), 1500);
   }
 </script>
 
-<SplitView>
-  {#snippet first()}
-    <CodeEditorPane
-      label="Input"
-      bind:value={input}
-      bind:wrap
-      placeholder="Paste your JSON here..."
-    >
-      {#snippet headerExtra()}
-        {#if input.trim()}
-          <span class="flex items-center gap-1 text-xs font-medium">
-            {#if parseResult.success}
-              <span class="inline-block h-2 w-2 rounded-full bg-green-500"></span>
-              <span class="text-green-600 dark:text-green-400">Valid</span>
-            {:else}
-              <span class="inline-block h-2 w-2 rounded-full bg-red-500"></span>
-              <span class="text-red-600 dark:text-red-400">Invalid</span>
-            {/if}
-          </span>
-        {/if}
-      {/snippet}
-    </CodeEditorPane>
-  {/snippet}
-
-  {#snippet second()}
-    <div class="flex items-center border-b border-gray-200 px-3 py-2 dark:border-gray-700">
-      <span class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
-        >Output</span
-      >
-    </div>
-    <div class="flex-1 overflow-y-auto bg-white p-4 dark:bg-gray-900">
-      {#if !input.trim()}
-        <p class="text-sm text-gray-500">
-          Paste JSON on the left to see the formatted output here.
-        </p>
-      {:else if parseResult.success}
-        <div class="py-0">
-          <JsonNode value={parseResult.data} depth={0} isLast={true} keyName={null} />
-        </div>
+{#snippet validityBadge()}
+  {#if shared.input.trim()}
+    <span class="flex items-center gap-1 text-xs font-medium">
+      {#if parseResult.success}
+        <span class="inline-block h-2 w-2 rounded-full bg-green-500"></span>
+        <span class="text-green-600 dark:text-green-400">Valid</span>
       {:else}
-        <div
-          class="rounded border border-red-300 bg-red-50 p-3 dark:border-red-700 dark:bg-red-900/30"
-        >
-          <p class="text-sm font-medium text-red-800 dark:text-red-300">
-            Invalid JSON — {parseResult.errors.length} error{parseResult.errors.length > 1
-              ? 's'
-              : ''}
-          </p>
-          <ul class="mt-2 space-y-1.5">
-            {#each parseResult.errors as err, i (i)}
-              <li class="text-sm text-red-700 dark:text-red-400">
-                {#if err.line !== null}
-                  <span class="font-mono text-xs text-red-500 dark:text-red-500"
-                    >Ln {err.line}, Col {err.column}</span
-                  >
-                  —
-                {/if}
-                {err.message}
-              </li>
-            {/each}
-          </ul>
-        </div>
+        <span class="inline-block h-2 w-2 rounded-full bg-red-500"></span>
+        <span class="text-red-600 dark:text-red-400">Invalid</span>
       {/if}
-    </div>
-  {/snippet}
+    </span>
+  {/if}
+{/snippet}
 
-  {#snippet actions()}
-    <button
-      onclick={formatJson}
-      disabled={!parseResult.success}
-      class="rounded px-2 py-1 text-xs font-medium transition-colors {parseResult.success
-        ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
-        : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
-    >
-      Format
-    </button>
-    <button
-      onclick={minifyJson}
-      disabled={!parseResult.success}
-      class="rounded px-2 py-1 text-xs font-medium transition-colors {parseResult.success
-        ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
-        : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
-    >
-      Minify
-    </button>
-    <button
-      onclick={copyInput}
-      disabled={!input}
-      class="rounded px-2 py-1 text-xs font-medium transition-colors {input
-        ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
-        : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
-    >
-      {copied ? '✓ Copied' : 'Copy'}
-    </button>
-    <button
-      onclick={loadSample}
-      class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
-    >
-      Sample
-    </button>
-    <button
-      onclick={clear}
-      class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
-    >
-      Clear
-    </button>
-  {/snippet}
+{#snippet actions()}
+  {#if popoutBlockedHint}
+    <span class="text-xs text-red-500 dark:text-red-400">Pop-up blocked by the browser</span>
+  {/if}
+  <button
+    onclick={formatJson}
+    disabled={!canFormat}
+    class="rounded px-2 py-1 text-xs font-medium transition-colors {canFormat
+      ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
+      : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
+  >
+    Format
+  </button>
+  <button
+    onclick={minifyJson}
+    disabled={!canFormat}
+    class="rounded px-2 py-1 text-xs font-medium transition-colors {canFormat
+      ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
+      : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
+  >
+    Minify
+  </button>
+  <button
+    onclick={copyInput}
+    disabled={!shared.input}
+    class="rounded px-2 py-1 text-xs font-medium transition-colors {shared.input
+      ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
+      : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
+  >
+    {copied ? '✓ Copied' : 'Copy'}
+  </button>
+  <button
+    onclick={loadSample}
+    disabled={!hostsInput}
+    class="rounded px-2 py-1 text-xs font-medium transition-colors {hostsInput
+      ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
+      : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
+  >
+    Sample
+  </button>
+  <button
+    onclick={clear}
+    disabled={!hostsInput}
+    class="rounded px-2 py-1 text-xs font-medium transition-colors {hostsInput
+      ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
+      : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
+  >
+    Clear
+  </button>
+{/snippet}
 
-  {#snippet status()}
-    {stats.lines} lines · {stats.chars} characters
-  {/snippet}
-</SplitView>
+{#if isSatellite}
+  <div class="flex h-full flex-col">
+    <PopoutSatelliteBar
+      label={satellitePaneId === 'input' ? 'Input' : 'Output'}
+      {connected}
+      {actions}
+      onreturn={() => sync?.returnHome()}
+    />
+    {#if satellitePaneId === 'input'}
+      <CodeEditorPane
+        label="Input"
+        bind:value={shared.input}
+        bind:wrap={shared.wrap}
+        placeholder="Paste your JSON here..."
+      >
+        {#snippet headerExtra()}
+          {@render validityBadge()}
+        {/snippet}
+      </CodeEditorPane>
+    {:else}
+      <JsonOutputPane {parseResult} hasInput={!!shared.input.trim()} />
+    {/if}
+  </div>
+{:else}
+  <SplitView poppedId={splitPoppedId} firstLabel="Input" secondLabel="Output" {actions}>
+    {#snippet first()}
+      <CodeEditorPane
+        label="Input"
+        bind:value={shared.input}
+        bind:wrap={shared.wrap}
+        placeholder="Paste your JSON here..."
+      >
+        {#snippet headerExtra()}
+          {@render validityBadge()}
+          {#if poppedIds.length === 0}
+            <PopoutButton label="Input" onclick={() => sync?.requestPopout('input')} />
+          {/if}
+        {/snippet}
+      </CodeEditorPane>
+    {/snippet}
+
+    {#snippet second()}
+      <JsonOutputPane
+        {parseResult}
+        hasInput={!!shared.input.trim()}
+        onpopout={poppedIds.length === 0 ? () => sync?.requestPopout('output') : undefined}
+      />
+    {/snippet}
+
+    {#snippet status()}
+      {stats.lines} lines · {stats.chars} characters
+    {/snippet}
+  </SplitView>
+{/if}
