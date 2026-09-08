@@ -7,12 +7,35 @@
    * @property {import('svelte').Snippet} [status] - Status bar content.
    * @property {number} [minRatio] - Lower clamp for the first pane's size fraction.
    * @property {number} [maxRatio] - Upper clamp for the first pane's size fraction.
+   * @property {'first' | 'second' | null} [poppedId] - Which pane, if any, is popped out into its
+   *   own window and should be hidden here. The pop-out button itself lives in that pane's own
+   *   header (each tool defines it), not in this component.
+   * @property {string} [firstLabel] - Human name for the first pane, used only in the "open in
+   *   another window" toolbar note.
+   * @property {string} [secondLabel] - Human name for the second pane, same use.
    */
 
   /** @type {SplitViewProps} */
-  let { first, second, actions, status, minRatio = 0.15, maxRatio = 0.85 } = $props();
+  let {
+    first,
+    second,
+    actions,
+    status,
+    minRatio = 0.15,
+    maxRatio = 0.85,
+    poppedId = null,
+    firstLabel = 'First',
+    secondLabel = 'Second'
+  } = $props();
 
   let viewMode = $state(/** @type {'editor' | 'split' | 'preview'} */ ('split'));
+
+  // Display-only: never assigned into, so bringing a popped pane back restores exactly the
+  // split/editor/preview mode the user had chosen before - same "derive, don't overwrite" approach
+  // DiffLayout.svelte takes for its own focus mode.
+  let effectiveViewMode = $derived(
+    poppedId === 'first' ? 'preview' : poppedId === 'second' ? 'editor' : viewMode
+  );
 
   let layout = $state(/** @type {'horizontal' | 'vertical'} */ ('horizontal'));
 
@@ -67,55 +90,63 @@
   <div
     class="flex shrink-0 items-center gap-3 border-b border-gray-200 px-3 py-2 dark:border-gray-700"
   >
-    <!-- View mode segmented control -->
-    <div class="flex overflow-hidden rounded border border-gray-200 text-xs dark:border-gray-700">
-      <button
-        onclick={() => (viewMode = 'editor')}
-        class="px-2.5 py-1 font-medium transition-colors {viewMode === 'editor'
-          ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
-          : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'}"
-      >
-        Editor
-      </button>
-      <button
-        onclick={() => (viewMode = 'split')}
-        class="border-x border-gray-200 px-2.5 py-1 font-medium transition-colors dark:border-gray-700 {viewMode ===
-        'split'
-          ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
-          : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'}"
-      >
-        Split
-      </button>
-      <button
-        onclick={() => (viewMode = 'preview')}
-        class="px-2.5 py-1 font-medium transition-colors {viewMode === 'preview'
-          ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
-          : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'}"
-      >
-        Preview
-      </button>
-    </div>
+    {#if poppedId === null}
+      <!-- View mode segmented control -->
+      <div class="flex overflow-hidden rounded border border-gray-200 text-xs dark:border-gray-700">
+        <button
+          onclick={() => (viewMode = 'editor')}
+          class="px-2.5 py-1 font-medium transition-colors {viewMode === 'editor'
+            ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
+            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'}"
+        >
+          Editor
+        </button>
+        <button
+          onclick={() => (viewMode = 'split')}
+          class="border-x border-gray-200 px-2.5 py-1 font-medium transition-colors dark:border-gray-700 {viewMode ===
+          'split'
+            ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
+            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'}"
+        >
+          Split
+        </button>
+        <button
+          onclick={() => (viewMode = 'preview')}
+          class="px-2.5 py-1 font-medium transition-colors {viewMode === 'preview'
+            ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
+            : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200'}"
+        >
+          Preview
+        </button>
+      </div>
 
-    {#if viewMode === 'split'}
-      <!-- Layout direction toggle -->
-      <button
-        onclick={() => (layout = layout === 'horizontal' ? 'vertical' : 'horizontal')}
-        title={layout === 'horizontal'
-          ? 'Switch to stacked layout'
-          : 'Switch to side-by-side layout'}
-        class="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
-      >
-        {layout === 'horizontal' ? '↕ Stack' : '↔ Side by side'}
-      </button>
+      {#if viewMode === 'split'}
+        <!-- Layout direction toggle -->
+        <button
+          onclick={() => (layout = layout === 'horizontal' ? 'vertical' : 'horizontal')}
+          title={layout === 'horizontal'
+            ? 'Switch to stacked layout'
+            : 'Switch to side-by-side layout'}
+          class="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+        >
+          {layout === 'horizontal' ? '↕ Stack' : '↔ Side by side'}
+        </button>
 
-      <!-- Swap pane order -->
-      <button
-        onclick={() => (swapped = !swapped)}
-        title={layout === 'horizontal' ? 'Swap left and right panes' : 'Swap top and bottom panes'}
-        class="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
-      >
-        {layout === 'horizontal' ? '⇄ Swap' : '⇅ Swap'}
-      </button>
+        <!-- Swap pane order -->
+        <button
+          onclick={() => (swapped = !swapped)}
+          title={layout === 'horizontal'
+            ? 'Swap left and right panes'
+            : 'Swap top and bottom panes'}
+          class="rounded border border-gray-200 px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+        >
+          {layout === 'horizontal' ? '⇄ Swap' : '⇅ Swap'}
+        </button>
+      {/if}
+    {:else}
+      <span class="text-xs text-gray-400 dark:text-gray-500">
+        {poppedId === 'first' ? firstLabel : secondLabel} is open in another window
+      </span>
     {/if}
 
     {#if actions}
@@ -126,17 +157,22 @@
   </div>
 
   <!-- Panes container -->
-  <div bind:this={panesEl} class="flex min-h-0 flex-1 {viewMode === 'split' ? directionClass : ''}">
-    {#if viewMode !== 'preview'}
+  <div
+    bind:this={panesEl}
+    class="flex min-h-0 flex-1 {effectiveViewMode === 'split' ? directionClass : ''}"
+  >
+    {#if effectiveViewMode !== 'preview'}
       <div
-        class="flex min-h-0 min-w-0 flex-col overflow-hidden {viewMode !== 'split' ? 'flex-1' : ''}"
-        style={viewMode === 'split' ? `flex: 0 0 ${ratio * 100}%` : undefined}
+        class="flex min-h-0 min-w-0 flex-col overflow-hidden {effectiveViewMode !== 'split'
+          ? 'flex-1'
+          : ''}"
+        style={effectiveViewMode === 'split' ? `flex: 0 0 ${ratio * 100}%` : undefined}
       >
         {@render first()}
       </div>
     {/if}
 
-    {#if viewMode === 'split'}
+    {#if effectiveViewMode === 'split'}
       <!-- Draggable divider -->
       <div
         role="separator"
@@ -152,7 +188,7 @@
       ></div>
     {/if}
 
-    {#if viewMode !== 'editor'}
+    {#if effectiveViewMode !== 'editor'}
       <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {@render second()}
       </div>

@@ -88,8 +88,10 @@
 
 <div class="mx-auto flex h-full max-w-2xl flex-col justify-center gap-4 overflow-y-auto p-6">
   <div class="text-center">
-    <h2 class="font-mono text-lg font-bold text-gray-900 dark:text-gray-100">Load a trajectory</h2>
-    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+    <h2 class="font-mono text-[1.5em] font-bold text-gray-900 dark:text-gray-100">
+      Load a trajectory
+    </h2>
+    <p class="mt-1 text-[1.125em] text-gray-500 dark:text-gray-400">
       Drop a trajectory JSON file, paste it below, or try the bundled example. Everything stays in
       your browser.
     </p>
@@ -106,11 +108,11 @@
     ondrop={onDrop}
     onclick={() => fileInputEl?.click()}
     onkeydown={onDropzoneKeydown}
-    class="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed p-6 text-sm transition-colors {dragActive
+    class="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed p-6 text-[1.125em] transition-colors {dragActive
       ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/30'
       : 'border-gray-300 hover:border-blue-400 dark:border-gray-700'}"
   >
-    <span class="text-2xl">&#x1F4C2;</span>
+    <span class="text-[2em]">&#x1F4C2;</span>
     <span class="text-gray-600 dark:text-gray-400">Drop a .json file here, or click to browse</span>
   </div>
   <input
@@ -121,7 +123,7 @@
     class="hidden"
   />
 
-  <div class="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+  <div class="flex items-center gap-2 text-[1em] text-gray-400 dark:text-gray-500">
     <div class="h-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
     or paste
     <div class="h-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
@@ -132,13 +134,13 @@
     id="trajectory-paste"
     bind:value={text}
     placeholder="Paste trajectory JSON here..."
-    class="h-32 w-full resize-y rounded border border-gray-200 bg-white p-2 font-mono text-xs text-gray-900 outline-none placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
+    class="h-32 w-full resize-y rounded border border-gray-200 bg-white p-2 font-mono text-[1em] text-gray-900 outline-none placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
   ></textarea>
 
   {#if error}
     <p
       role="alert"
-      class="rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+      class="rounded border border-red-200 bg-red-50 p-2 text-[1em] text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
     >
       {error}
     </p>
@@ -148,7 +150,8 @@
     <button
       onclick={loadPasted}
       disabled={!text.trim() || loading}
-      class="rounded-md px-4 py-1.5 text-xs font-semibold transition-colors {text.trim() && !loading
+      class="rounded-md px-4 py-1.5 text-[1em] font-semibold transition-colors {text.trim() &&
+      !loading
         ? 'bg-blue-600 text-white hover:bg-blue-700'
         : 'cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500'}"
     >
@@ -157,7 +160,7 @@
     <button
       onclick={loadExample}
       disabled={loading}
-      class="rounded-md border border-gray-200 px-4 py-1.5 text-xs font-semibold text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+      class="rounded-md border border-gray-200 px-4 py-1.5 text-[1em] font-semibold text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
     >
       Load example
     </button>

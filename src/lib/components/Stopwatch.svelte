@@ -205,6 +205,9 @@
         },
         ...laps
       ];
+
+      lastLapElapsed = elapsedTime;
+      lastLapTimestamp = endTimestamp;
     }
 
     if (elapsedTime > 0 && sessionStartTime > 0) {

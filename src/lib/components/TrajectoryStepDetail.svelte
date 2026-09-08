@@ -23,7 +23,7 @@
   {@const currentStep = step}
   <div class="flex-1 space-y-4 overflow-y-auto p-4">
     <div
-      class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400"
+      class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[1em] text-gray-500 dark:text-gray-400"
     >
       <span class="font-mono font-semibold text-gray-900 dark:text-gray-100"
         >Step {currentStep.stepId}</span
@@ -43,7 +43,7 @@
     {#if currentStep.message}
       <details open>
         <summary
-          class="cursor-pointer text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
+          class="cursor-pointer text-[1em] font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
         >
           Message
         </summary>
@@ -59,14 +59,14 @@
     {#if currentStep.toolCalls.length > 0}
       <details open>
         <summary
-          class="cursor-pointer text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
+          class="cursor-pointer text-[1em] font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
         >
           Tool Calls ({currentStep.toolCalls.length})
         </summary>
         <div class="mt-2 space-y-3">
           {#each currentStep.toolCalls as toolCall, ti (toolCall.toolCallId ?? ti)}
             <div class="space-y-2 rounded border border-gray-200 p-2 dark:border-gray-700">
-              <div class="flex flex-wrap items-center gap-2 text-xs">
+              <div class="flex flex-wrap items-center gap-2 text-[1em]">
                 <span class="font-mono font-semibold text-gray-900 dark:text-gray-100"
                   >{toolCall.functionName}</span
                 >
@@ -103,7 +103,7 @@
     {#if hasObservationSection}
       <details open>
         <summary
-          class="cursor-pointer text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
+          class="cursor-pointer text-[1em] font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
         >
           Observation
         </summary>
@@ -125,11 +125,11 @@
     {#if currentStep.metrics.length > 0}
       <details open>
         <summary
-          class="cursor-pointer text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
+          class="cursor-pointer text-[1em] font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
         >
           Metrics
         </summary>
-        <dl class="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+        <dl class="mt-2 grid grid-cols-2 gap-2 text-[1em] sm:grid-cols-4">
           {#each currentStep.metrics as metric (metric.key)}
             <div class="rounded border border-gray-200 p-2 dark:border-gray-700">
               <dt class="text-gray-500 dark:text-gray-400">{metric.key}</dt>
@@ -148,7 +148,7 @@
 
     <details>
       <summary
-        class="cursor-pointer text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
+        class="cursor-pointer text-[1em] font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
       >
         Raw JSON
       </summary>
@@ -158,5 +158,7 @@
     </details>
   </div>
 {:else}
-  <p class="p-4 text-sm text-gray-500 dark:text-gray-400">Select a step to see its details.</p>
+  <p class="p-4 text-[1.125em] text-gray-500 dark:text-gray-400">
+    Select a step to see its details.
+  </p>
 {/if}

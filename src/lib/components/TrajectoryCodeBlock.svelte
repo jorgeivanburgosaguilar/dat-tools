@@ -42,7 +42,7 @@
   <div
     class="flex items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-700 dark:bg-gray-800"
   >
-    <span class="truncate font-mono text-xs font-semibold text-gray-500 dark:text-gray-400"
+    <span class="truncate font-mono text-[1em] font-semibold text-gray-500 dark:text-gray-400"
       >{label}</span
     >
     <div class="flex shrink-0 items-center gap-1">
@@ -51,7 +51,7 @@
         onclick={() => (wrap = !wrap)}
         aria-pressed={wrap}
         title="Wrap long lines"
-        class="rounded px-2 py-0.5 text-xs font-medium transition-colors {wrap
+        class="rounded px-2 py-0.5 text-[1em] font-medium transition-colors {wrap
           ? 'bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
           : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'}"
       >
@@ -59,7 +59,7 @@
       </button>
       <button
         onclick={copy}
-        class="rounded px-2 py-0.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+        class="rounded px-2 py-0.5 text-[1em] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
       >
         {copied ? '✓ Copied' : 'Copy'}
       </button>
@@ -70,7 +70,7 @@
        no scroll-event wiring needed for a read-only, single-pane view like this one. -->
   <div class="overflow-x-auto bg-white dark:bg-gray-900">
     <div
-      class="grid grid-cols-[auto_1fr] gap-x-3 py-3 font-mono text-xs leading-5 {wrap
+      class="grid grid-cols-[auto_1fr] gap-x-3 py-3 font-mono text-[1em] leading-6 {wrap
         ? 'w-full'
         : 'w-max'}"
     >

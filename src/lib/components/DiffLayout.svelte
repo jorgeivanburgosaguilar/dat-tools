@@ -7,6 +7,8 @@
    * elsewhere.
    */
 
+  import PopoutButton from './PopoutButton.svelte';
+
   /**
    * @typedef {Object} LayoutPane
    * @property {string} id - Stable key; also the focus-mode identity.
@@ -16,15 +18,19 @@
 
   /**
    * @typedef {Object} DiffLayoutProps
-   * @property {LayoutPane[]} panes - 2 or 3 entries.
+   * @property {LayoutPane[]} panes - 2 or 3 entries. The parent is responsible for excluding any
+   *   pane that's currently popped out into its own window - this component has no concept of that
+   *   state, only of however many panes it's handed.
    * @property {import('svelte').Snippet} [primary] - Centered primary action.
    * @property {import('svelte').Snippet} [actions] - Right-aligned toolbar controls.
    * @property {import('svelte').Snippet} [status] - Status bar content.
    * @property {number} [minRatio] - Lower clamp for a pane's size fraction.
+   * @property {(paneId: string) => void} [onpopout] - Pop a pane out into its own window. Omit to
+   *   hide the pop-out controls entirely (e.g. when BroadcastChannel isn't supported).
    */
 
   /** @type {DiffLayoutProps} */
-  let { panes, primary, actions, status, minRatio = 0.15 } = $props();
+  let { panes, primary, actions, status, minRatio = 0.15, onpopout } = $props();
 
   // Pane-order permutations, keyed by pane count. Cycling through these is what "Swap" does;
   // for 3 panes it goes source-first -> reversed -> source-in-the-middle, per the layout the
@@ -149,6 +155,17 @@
           </button>
         {/each}
       </div>
+
+      {#if onpopout && panes.length > 1}
+        <!-- One per pane, not per-pane-header, since a pane's own render() is an opaque snippet
+             this component doesn't own the markup of. Hidden when only one pane remains - popping
+             the last visible pane would leave this window empty. -->
+        <div class="flex items-center gap-1">
+          {#each panes as pane (pane.id)}
+            <PopoutButton label={pane.label} onclick={() => onpopout(pane.id)} />
+          {/each}
+        </div>
+      {/if}
 
       {#if focusedPane === null}
         <button

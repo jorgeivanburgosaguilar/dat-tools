@@ -203,6 +203,22 @@ describe('Stopwatch', () => {
       await screen.getByRole('button', { name: 'Stop' }).click();
       await expect.element(screen.getByText(/⏳ Lap 2:/)).toBeVisible();
     });
+
+    it('does not keep appending laps on repeated Stop clicks while idle', async () => {
+      const screen = render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await vi.advanceTimersByTimeAsync(1100);
+      await screen.getByRole('button', { name: 'Lap' }).click();
+
+      await vi.advanceTimersByTimeAsync(1100);
+      await screen.getByRole('button', { name: 'Stop' }).click();
+      await expect.element(screen.getByText(/⏳ Lap 2:/)).toBeVisible();
+
+      await screen.getByRole('button', { name: 'Stop' }).click();
+      await screen.getByRole('button', { name: 'Stop' }).click();
+      await expect.element(screen.getByText(/⏳ Lap 2:/)).toBeVisible();
+      await expect.element(screen.getByText(/⏳ Lap 3:/)).not.toBeInTheDocument();
+    });
   });
 
   describe('Paused session persistence', () => {

@@ -6,11 +6,12 @@
 
   /**
    * @typedef {Object} DiffLayoutHarnessProps
-   * @property {2 | 3} [paneCount]
+   * @property {1 | 2 | 3} [paneCount]
+   * @property {(paneId: string) => void} [onpopout]
    */
 
   /** @type {DiffLayoutHarnessProps} */
-  let { paneCount = 2 } = $props();
+  let { paneCount = 2, onpopout } = $props();
 </script>
 
 {#snippet paneA()}
@@ -34,17 +35,13 @@
 {/snippet}
 
 <DiffLayout
-  panes={paneCount === 3
-    ? [
-        { id: 'a', label: 'A', render: paneA },
-        { id: 'b', label: 'B', render: paneB },
-        { id: 'c', label: 'C', render: paneC }
-      ]
-    : [
-        { id: 'a', label: 'A', render: paneA },
-        { id: 'b', label: 'B', render: paneB }
-      ]}
+  panes={[
+    { id: 'a', label: 'A', render: paneA },
+    { id: 'b', label: 'B', render: paneB },
+    { id: 'c', label: 'C', render: paneC }
+  ].slice(0, paneCount)}
   {primary}
   {actions}
   {status}
+  {onpopout}
 />

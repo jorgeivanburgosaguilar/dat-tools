@@ -25,6 +25,14 @@
    *   collects each pane's own natural heights via `onmeasure` first. Ignored when `!wrap`.
    * @property {(heights: number[]) => void} [onmeasure] - Reports this pane's own natural
    *   (unclamped) row heights, recomputed whenever `cells`/`wrap` change or the pane is resized.
+   * @property {number} [scrollFractionY] - Cross-window scroll sync (see DiffChecker.svelte):
+   *   `scrollTop / (scrollHeight - clientHeight)` from whichever window's pane last scrolled.
+   *   Omit entirely (rather than passing 0) when no other window needs to follow this pane's
+   *   scroll - passing a real value fights the pixel-based `scrollTop`/`scrollLeft` intra-window
+   *   lock above, which two windows can never agree on since each has its own pane width/wrapping.
+   * @property {number} [scrollFractionX] - Same idea, horizontal.
+   * @property {(y: number, x: number) => void} [onscrollfraction] - Reports this pane's own
+   *   scroll position as a fraction, independent of `onscroll`'s pixel report.
    */
 
   /** @type {DiffPaneProps} */
@@ -37,7 +45,10 @@
     onscroll = () => {},
     wrap = false,
     rowHeights = [],
-    onmeasure = () => {}
+    onmeasure = () => {},
+    scrollFractionY = undefined,
+    scrollFractionX = undefined,
+    onscrollfraction = () => {}
   } = $props();
 
   /** @type {HTMLDivElement | null} */
@@ -71,6 +82,15 @@
     if (!scrollEl) return;
     if (gutterEl) gutterEl.scrollTop = scrollEl.scrollTop;
     onscroll(scrollEl.scrollTop, scrollEl.scrollLeft);
+
+    const maxY = scrollEl.scrollHeight - scrollEl.clientHeight;
+    const maxX = scrollEl.scrollWidth - scrollEl.clientWidth;
+    const fracY = maxY > 0 ? scrollEl.scrollTop / maxY : 0;
+    const fracX = maxX > 0 ? scrollEl.scrollLeft / maxX : 0;
+    // Rounded so a value that round-trips through another window's `applyPatch` lands on the same
+    // float bit-for-bit, letting its `===` skip (and DiffChecker's own tolerance check) terminate
+    // the echo instead of bouncing forever.
+    onscrollfraction(Math.round(fracY * 1e5) / 1e5, Math.round(fracX * 1e5) / 1e5);
   }
 
   // Compare-before-assign lets the scroll lock terminate on its own: an echoed 'scroll' event
@@ -84,6 +104,34 @@
       if (scrollEl.scrollLeft !== left) scrollEl.scrollLeft = left;
     }
     if (gutterEl && gutterEl.scrollTop !== top) gutterEl.scrollTop = top;
+  });
+
+  /**
+   * Converts an incoming scroll *fraction* (from another window - see DiffChecker.svelte) into a
+   * pixel position using this pane's own scroll extents, which another window can never share
+   * (different pane width/wrapping). A 1px tolerance avoids re-triggering `handleScroll` for a
+   * rounding difference that would otherwise re-report a fraction 1px off forever.
+   */
+  function applyScrollFraction() {
+    if (!scrollEl) return;
+    const maxY = scrollEl.scrollHeight - scrollEl.clientHeight;
+    const maxX = scrollEl.scrollWidth - scrollEl.clientWidth;
+    if (scrollFractionY !== undefined && maxY > 0) {
+      const target = Math.round(scrollFractionY * maxY);
+      if (Math.abs(scrollEl.scrollTop - target) > 1) scrollEl.scrollTop = target;
+    }
+    if (scrollFractionX !== undefined && maxX > 0) {
+      const target = Math.round(scrollFractionX * maxX);
+      if (Math.abs(scrollEl.scrollLeft - target) > 1) scrollEl.scrollLeft = target;
+    }
+  }
+
+  $effect(() => {
+    // Re-applied whenever a new fraction arrives, not just once - see `measure()` below for the
+    // other case (layout settling after this effect already ran once at maxScroll === 0).
+    void scrollFractionY;
+    void scrollFractionX;
+    applyScrollFraction();
   });
 
   function scheduleMeasure() {
@@ -108,6 +156,9 @@
       (el) => el.getBoundingClientRect().height
     );
     onmeasure(heights);
+    // A fraction that arrived while this pane's content was still short (maxScroll === 0, so
+    // applyScrollFraction() above was a no-op) is retried here once real layout has settled.
+    applyScrollFraction();
   }
 
   $effect(() => {
