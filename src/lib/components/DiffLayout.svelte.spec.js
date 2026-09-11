@@ -11,24 +11,24 @@ function paneOrder(container) {
 
 describe('DiffLayout', () => {
   it('renders 2 panes in DOM order', async () => {
-    const screen = render(DiffLayoutHarness, { paneCount: 2 });
+    const screen = await render(DiffLayoutHarness, { paneCount: 2 });
     expect(paneOrder(screen.container)).toEqual(['pane-a', 'pane-b']);
   });
 
   it('renders 3 panes in DOM order', async () => {
-    const screen = render(DiffLayoutHarness, { paneCount: 3 });
+    const screen = await render(DiffLayoutHarness, { paneCount: 3 });
     expect(paneOrder(screen.container)).toEqual(['pane-a', 'pane-b', 'pane-c']);
   });
 
   it('renders the primary, actions and status snippets', async () => {
-    const screen = render(DiffLayoutHarness, { paneCount: 2 });
+    const screen = await render(DiffLayoutHarness, { paneCount: 2 });
     await expect.element(screen.getByTestId('primary-btn')).toBeVisible();
     await expect.element(screen.getByTestId('actions')).toBeVisible();
     await expect.element(screen.getByTestId('status')).toBeVisible();
   });
 
   it('cycles a 2-pane layout through both orders on Swap', async () => {
-    const screen = render(DiffLayoutHarness, { paneCount: 2 });
+    const screen = await render(DiffLayoutHarness, { paneCount: 2 });
     const swap = screen.getByRole('button', { name: '⇄ Swap' });
 
     expect(paneOrder(screen.container)).toEqual(['pane-a', 'pane-b']);
@@ -39,7 +39,7 @@ describe('DiffLayout', () => {
   });
 
   it('cycles a 3-pane layout source-first -> reversed -> source-in-the-middle on Swap', async () => {
-    const screen = render(DiffLayoutHarness, { paneCount: 3 });
+    const screen = await render(DiffLayoutHarness, { paneCount: 3 });
     const swap = screen.getByRole('button', { name: '⇄ Swap' });
 
     expect(paneOrder(screen.container)).toEqual(['pane-a', 'pane-b', 'pane-c']);
@@ -52,7 +52,7 @@ describe('DiffLayout', () => {
   });
 
   it('shows exactly one pane in focus mode and restores all panes on Split', async () => {
-    const screen = render(DiffLayoutHarness, { paneCount: 3 });
+    const screen = await render(DiffLayoutHarness, { paneCount: 3 });
 
     await screen.getByRole('button', { name: 'B', exact: true }).click();
     expect(paneOrder(screen.container)).toEqual(['pane-b']);
@@ -63,7 +63,7 @@ describe('DiffLayout', () => {
 
   describe('onpopout', () => {
     it('does not render pop-out buttons when onpopout is omitted', async () => {
-      const screen = render(DiffLayoutHarness, { paneCount: 2 });
+      const screen = await render(DiffLayoutHarness, { paneCount: 2 });
       await expect
         .element(screen.getByRole('button', { name: /Open A in a new window/ }))
         .not.toBeInTheDocument();
@@ -71,7 +71,7 @@ describe('DiffLayout', () => {
 
     it('renders one pop-out button per pane when onpopout is provided', async () => {
       const onpopout = vi.fn();
-      const screen = render(DiffLayoutHarness, { paneCount: 3, onpopout });
+      const screen = await render(DiffLayoutHarness, { paneCount: 3, onpopout });
       await expect
         .element(screen.getByRole('button', { name: 'Open A in a new window' }))
         .toBeVisible();
@@ -85,14 +85,14 @@ describe('DiffLayout', () => {
 
     it('calls onpopout with the clicked pane id', async () => {
       const onpopout = vi.fn();
-      const screen = render(DiffLayoutHarness, { paneCount: 2, onpopout });
+      const screen = await render(DiffLayoutHarness, { paneCount: 2, onpopout });
       await screen.getByRole('button', { name: 'Open B in a new window' }).click();
       expect(onpopout).toHaveBeenCalledWith('b');
     });
 
     it('hides pop-out buttons once only one pane remains', async () => {
       const onpopout = vi.fn();
-      const screen = render(DiffLayoutHarness, { paneCount: 2, onpopout });
+      const screen = await render(DiffLayoutHarness, { paneCount: 2, onpopout });
       await screen.getByRole('button', { name: 'Open B in a new window' }).click();
 
       // The harness doesn't remove panes on its own - simulate what the real parent does (filter
