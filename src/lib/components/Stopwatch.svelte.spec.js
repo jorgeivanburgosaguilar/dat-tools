@@ -19,31 +19,31 @@ describe('Stopwatch', () => {
   });
 
   it('renders initial time display as 00:00:00', async () => {
-    const screen = render(Stopwatch);
+    const screen = await render(Stopwatch);
     await expect.element(screen.getByText('00:00:00')).toBeVisible();
   });
 
   it('renders Start and Stop buttons initially', async () => {
-    const screen = render(Stopwatch);
+    const screen = await render(Stopwatch);
     await expect.element(screen.getByRole('button', { name: 'Start' })).toBeVisible();
     await expect.element(screen.getByRole('button', { name: 'Stop' })).toBeVisible();
   });
 
   it('shows Pause button after clicking Start', async () => {
-    const screen = render(Stopwatch);
+    const screen = await render(Stopwatch);
     await screen.getByRole('button', { name: 'Start' }).click();
     await expect.element(screen.getByRole('button', { name: 'Pause' })).toBeVisible();
   });
 
   it('shows Continue button after clicking Pause', async () => {
-    const screen = render(Stopwatch);
+    const screen = await render(Stopwatch);
     await screen.getByRole('button', { name: 'Start' }).click();
     await screen.getByRole('button', { name: 'Pause' }).click();
     await expect.element(screen.getByRole('button', { name: 'Continue' })).toBeVisible();
   });
 
   it('shows Pause button again after clicking Continue', async () => {
-    const screen = render(Stopwatch);
+    const screen = await render(Stopwatch);
     await screen.getByRole('button', { name: 'Start' }).click();
     await screen.getByRole('button', { name: 'Pause' }).click();
     await screen.getByRole('button', { name: 'Continue' }).click();
@@ -51,7 +51,7 @@ describe('Stopwatch', () => {
   });
 
   it('shows Start button again after Stop', async () => {
-    const screen = render(Stopwatch);
+    const screen = await render(Stopwatch);
     await screen.getByRole('button', { name: 'Start' }).click();
     await screen.getByRole('button', { name: 'Stop' }).click();
     await expect.element(screen.getByRole('button', { name: 'Start' })).toBeVisible();
@@ -59,7 +59,7 @@ describe('Stopwatch', () => {
 
   it('calls onstart callback when started', async () => {
     const onstart = vi.fn();
-    const screen = render(Stopwatch, { onstart });
+    const screen = await render(Stopwatch, { onstart });
     await screen.getByRole('button', { name: 'Start' }).click();
     expect(onstart).toHaveBeenCalledOnce();
     expect(onstart).toHaveBeenCalledWith(
@@ -69,7 +69,7 @@ describe('Stopwatch', () => {
 
   it('calls onpause callback when paused', async () => {
     const onpause = vi.fn();
-    const screen = render(Stopwatch, { onpause });
+    const screen = await render(Stopwatch, { onpause });
     await screen.getByRole('button', { name: 'Start' }).click();
     await screen.getByRole('button', { name: 'Pause' }).click();
     expect(onpause).toHaveBeenCalledOnce();
@@ -80,7 +80,7 @@ describe('Stopwatch', () => {
 
   it('calls onstop callback when stopped after running', async () => {
     const onstop = vi.fn();
-    const screen = render(Stopwatch, { onstop });
+    const screen = await render(Stopwatch, { onstop });
     await screen.getByRole('button', { name: 'Start' }).click();
     // Advance the faked clock so the 1-second interval fires and elapsedTime > 0
     await vi.advanceTimersByTimeAsync(1100);
@@ -97,14 +97,14 @@ describe('Stopwatch', () => {
 
   it('does not call onstop if never started', async () => {
     const onstop = vi.fn();
-    const screen = render(Stopwatch, { onstop });
+    const screen = await render(Stopwatch, { onstop });
     await screen.getByRole('button', { name: 'Stop' }).click();
     expect(onstop).not.toHaveBeenCalled();
   });
 
   it('calls ontick at 5-second intervals', async () => {
     const ontick = vi.fn();
-    const screen = render(Stopwatch, { ontick });
+    const screen = await render(Stopwatch, { ontick });
     await screen.getByRole('button', { name: 'Start' }).click();
 
     await vi.advanceTimersByTimeAsync(5000);
@@ -119,13 +119,13 @@ describe('Stopwatch', () => {
 
   it('stops interval after component unmount', async () => {
     const ontick = vi.fn();
-    const screen = render(Stopwatch, { ontick });
+    const screen = await render(Stopwatch, { ontick });
     await screen.getByRole('button', { name: 'Start' }).click();
 
     await vi.advanceTimersByTimeAsync(5000);
     expect(ontick).toHaveBeenCalledTimes(1);
 
-    screen.unmount();
+    await screen.unmount();
 
     await vi.advanceTimersByTimeAsync(10000);
     expect(ontick).toHaveBeenCalledTimes(1); // no additional calls after unmount
@@ -133,7 +133,7 @@ describe('Stopwatch', () => {
 
   describe('Laps', () => {
     it('shows a Lap button only while running', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await expect.element(screen.getByRole('button', { name: 'Lap' })).not.toBeInTheDocument();
 
       await screen.getByRole('button', { name: 'Start' }).click();
@@ -144,7 +144,7 @@ describe('Stopwatch', () => {
     });
 
     it('adds a lap entry when Lap is clicked', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
       await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Lap' }).click();
@@ -152,7 +152,7 @@ describe('Stopwatch', () => {
     });
 
     it('computes distinct split durations for consecutive laps', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
 
       // First lap: ~61s elapsed since session start -> a 1-minute split
@@ -167,7 +167,7 @@ describe('Stopwatch', () => {
     });
 
     it('clears laps when starting a fresh session after Stop', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
       await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Lap' }).click();
@@ -179,21 +179,21 @@ describe('Stopwatch', () => {
     });
 
     it('persists laps across a pause/remount cycle', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
       await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Lap' }).click();
       await expect.element(screen.getByText(/⏳ Lap 1:/)).toBeVisible();
 
       await screen.getByRole('button', { name: 'Pause' }).click();
-      screen.unmount();
+      await screen.unmount();
 
-      const remounted = render(Stopwatch);
+      const remounted = await render(Stopwatch);
       await expect.element(remounted.getByText(/⏳ Lap 1:/)).toBeVisible();
     });
 
     it('records a final partial lap on Stop when time passed since the last lap', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
       await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Lap' }).click();
@@ -205,7 +205,7 @@ describe('Stopwatch', () => {
     });
 
     it('does not keep appending laps on repeated Stop clicks while idle', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
       await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Lap' }).click();
@@ -223,18 +223,18 @@ describe('Stopwatch', () => {
 
   describe('Paused session persistence', () => {
     it('restores elapsed time and Continue state on remount after pause', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
       await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Pause' }).click();
-      screen.unmount();
+      await screen.unmount();
 
-      const remounted = render(Stopwatch);
+      const remounted = await render(Stopwatch);
       await expect.element(remounted.getByRole('button', { name: 'Continue' })).toBeVisible();
     });
 
     it('does not show a "Resumed from a pause" note on a normal pause without reload', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
       await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Pause' }).click();
@@ -242,50 +242,50 @@ describe('Stopwatch', () => {
     });
 
     it('shows a "Resumed from a pause" note after remount', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
       await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Pause' }).click();
-      screen.unmount();
+      await screen.unmount();
 
-      const remounted = render(Stopwatch);
+      const remounted = await render(Stopwatch);
       await expect.element(remounted.getByText(/Resumed from a pause/)).toBeVisible();
     });
 
     it('hides the "Resumed from a pause" note after Stop', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
       await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Pause' }).click();
-      screen.unmount();
+      await screen.unmount();
 
-      const remounted = render(Stopwatch);
+      const remounted = await render(Stopwatch);
       await expect.element(remounted.getByText(/Resumed from a pause/)).toBeVisible();
       await remounted.getByRole('button', { name: 'Stop' }).click();
       await expect.element(remounted.getByText(/Resumed from a pause/)).not.toBeInTheDocument();
     });
 
     it('does not restore a paused session after Stop', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
       await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Pause' }).click();
       await screen.getByRole('button', { name: 'Stop' }).click();
-      screen.unmount();
+      await screen.unmount();
 
-      const remounted = render(Stopwatch);
+      const remounted = await render(Stopwatch);
       await expect.element(remounted.getByRole('button', { name: 'Start' })).toBeVisible();
     });
   });
 
   describe('Records', () => {
     it('renders "No records yet" on initial mount', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await expect.element(screen.getByText('No records yet')).toBeVisible();
     });
 
     it('shows a record entry after starting and stopping', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
       await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Stop' }).click();
@@ -293,7 +293,7 @@ describe('Stopwatch', () => {
     });
 
     it('does not show a duplicate record if stopped twice without restarting', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
       await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Stop' }).click();
@@ -304,7 +304,7 @@ describe('Stopwatch', () => {
     });
 
     it('shows "Clear All Records" button only when records exist', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await expect
         .element(screen.getByRole('button', { name: 'Clear All Records' }))
         .not.toBeInTheDocument();
@@ -316,18 +316,18 @@ describe('Stopwatch', () => {
     });
 
     it('clicking "Clear All Records" opens the confirmation modal', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
       await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Stop' }).click();
       await screen.getByRole('button', { name: 'Clear All Records' }).click();
       await expect
-        .element(screen.getByText('Are you sure you want to clear all records?'))
+        .element(screen.getByText(/Are you sure you want to clear all records\?/))
         .toBeVisible();
     });
 
     it('clicking Cancel closes the modal without clearing records', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
       await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Stop' }).click();
@@ -335,13 +335,13 @@ describe('Stopwatch', () => {
       await screen.getByRole('button', { name: 'Clear All Records' }).click();
       await screen.getByRole('button', { name: 'Cancel' }).click();
       await expect
-        .element(screen.getByText('Are you sure you want to clear all records?'))
+        .element(screen.getByText(/Are you sure you want to clear all records\?/))
         .not.toBeInTheDocument();
       await expect.element(screen.getByText(/Duration:/)).toBeVisible();
     });
 
     it('clicking confirm in the modal clears records and shows "No records yet"', async () => {
-      const screen = render(Stopwatch);
+      const screen = await render(Stopwatch);
       await screen.getByRole('button', { name: 'Start' }).click();
       await vi.advanceTimersByTimeAsync(1100);
       await screen.getByRole('button', { name: 'Stop' }).click();

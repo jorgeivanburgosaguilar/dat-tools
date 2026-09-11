@@ -14,7 +14,7 @@ describe('CodeEditorPane', () => {
     const long = Array.from({ length: 40 }, () => 'lorem').join(' ');
     const value = `${long}\nshort`;
 
-    const screen = render(CodeEditorPane, { label: 'Test', value });
+    const screen = await render(CodeEditorPane, { label: 'Test', value });
     const textarea = /** @type {HTMLTextAreaElement} */ (
       screen.container.querySelector('textarea')
     );

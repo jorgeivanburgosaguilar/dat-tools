@@ -21,7 +21,7 @@ describe('MarkdownPreview', () => {
   });
 
   it('renders both panes and shows the rendered markdown', async () => {
-    const screen = render(MarkdownPreview, { initialContent: '# Hello' });
+    const screen = await render(MarkdownPreview, { initialContent: '# Hello' });
     await expect.element(screen.getByRole('heading', { name: 'Hello', level: 1 })).toBeVisible();
     await expect
       .element(screen.getByRole('button', { name: 'Open Markdown in a new window' }))
@@ -29,27 +29,27 @@ describe('MarkdownPreview', () => {
     await expect
       .element(screen.getByRole('button', { name: 'Open Preview in a new window' }))
       .toBeVisible();
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('updates the preview as the markdown source changes', async () => {
-    const screen = render(MarkdownPreview, { initialContent: '' });
+    const screen = await render(MarkdownPreview, { initialContent: '' });
     await screen.getByPlaceholder('Type your markdown here...').fill('## A heading');
     await expect
       .element(screen.getByRole('heading', { name: 'A heading', level: 2 }))
       .toBeVisible();
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('clears the content', async () => {
-    const screen = render(MarkdownPreview, { initialContent: '# Hello' });
+    const screen = await render(MarkdownPreview, { initialContent: '# Hello' });
     await screen.getByRole('button', { name: 'Clear' }).click();
     await expect.element(screen.getByPlaceholder('Type your markdown here...')).toHaveValue('');
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('converts pasted HTML to markdown and inserts it at the cursor via Import HTML', async () => {
-    const screen = render(MarkdownPreview, { initialContent: '' });
+    const screen = await render(MarkdownPreview, { initialContent: '' });
 
     await screen.getByRole('button', { name: 'Import HTML' }).click();
     await screen.getByPlaceholder(/Paste any HTML here/).fill('<h1>Hi</h1><p>Yo</p>');
@@ -58,20 +58,20 @@ describe('MarkdownPreview', () => {
     await expect
       .element(screen.getByPlaceholder('Type your markdown here...'))
       .toHaveValue('# Hi\n\nYo');
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('does not call onsatellite when rendered normally (no popout request in the URL)', async () => {
     const onsatellite = vi.fn();
-    const screen = render(MarkdownPreview, { initialContent: '', onsatellite });
+    const screen = await render(MarkdownPreview, { initialContent: '', onsatellite });
     expect(onsatellite).not.toHaveBeenCalled();
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('stays a normal full tool when opened directly with a popout URL but no owner ever answers', async () => {
     setSearch('?popout=preview&session=orphan-session');
     const onsatellite = vi.fn();
-    const screen = render(MarkdownPreview, { initialContent: '# Standalone', onsatellite });
+    const screen = await render(MarkdownPreview, { initialContent: '# Standalone', onsatellite });
 
     // Give any (incorrect) collapse a moment to happen before asserting it didn't.
     await new Promise((resolve) => setTimeout(resolve, 200));
@@ -83,13 +83,13 @@ describe('MarkdownPreview', () => {
     await expect
       .element(screen.getByRole('button', { name: 'Open Markdown in a new window' }))
       .toBeVisible();
-    screen.unmount();
+    await screen.unmount();
   });
 
   describe('pop-out', () => {
     it('does not hide a pane just from clicking pop-out when the popup is blocked', async () => {
       vi.spyOn(window, 'open').mockReturnValue(null);
-      const screen = render(MarkdownPreview, { initialContent: '' });
+      const screen = await render(MarkdownPreview, { initialContent: '' });
 
       await screen.getByRole('button', { name: 'Open Preview in a new window' }).click();
 
@@ -97,16 +97,16 @@ describe('MarkdownPreview', () => {
         .element(screen.getByRole('button', { name: 'Open Preview in a new window' }))
         .toBeVisible();
       await expect.element(screen.getByText('Pop-up blocked by the browser')).toBeVisible();
-      screen.unmount();
+      await screen.unmount();
     });
 
     it('syncs typed content live to a satellite window rendering the Preview pane', async () => {
-      const owner = render(MarkdownPreview, { initialContent: '# Hello' });
+      const owner = await render(MarkdownPreview, { initialContent: '# Hello' });
 
       const session = ownerSessionId(TOOL);
       setSearch(`?popout=preview&session=${session}`);
       const satelliteOnsatellite = vi.fn();
-      const satellite = render(MarkdownPreview, { onsatellite: satelliteOnsatellite });
+      const satellite = await render(MarkdownPreview, { onsatellite: satelliteOnsatellite });
 
       await expect.poll(() => satelliteOnsatellite.mock.calls).toEqual([[true, 'Preview']]);
       await expect.element(satellite.getByText('Connected')).toBeVisible();
@@ -120,16 +120,16 @@ describe('MarkdownPreview', () => {
         .element(satellite.getByRole('heading', { name: 'Synced heading', level: 2 }))
         .toBeVisible();
 
-      owner.unmount();
-      satellite.unmount();
+      await owner.unmount();
+      await satellite.unmount();
     });
 
     it('brings the pane home when the satellite returns', async () => {
-      const owner = render(MarkdownPreview, { initialContent: '# Hello' });
+      const owner = await render(MarkdownPreview, { initialContent: '# Hello' });
 
       const session = ownerSessionId(TOOL);
       setSearch(`?popout=preview&session=${session}`);
-      const satellite = render(MarkdownPreview);
+      const satellite = await render(MarkdownPreview);
       await expect.element(owner.getByText('Preview is open in another window')).toBeVisible();
 
       await satellite.getByRole('button', { name: '↩ Return to main window' }).click();
@@ -141,16 +141,16 @@ describe('MarkdownPreview', () => {
         .element(owner.getByText('Preview is open in another window'))
         .not.toBeInTheDocument();
 
-      owner.unmount();
-      satellite.unmount();
+      await owner.unmount();
+      await satellite.unmount();
     });
 
     it('disables Import HTML in the owner while the editor pane is popped out', async () => {
-      const owner = render(MarkdownPreview, { initialContent: '# Hello' });
+      const owner = await render(MarkdownPreview, { initialContent: '# Hello' });
 
       const session = ownerSessionId(TOOL);
       setSearch(`?popout=editor&session=${session}`);
-      const satellite = render(MarkdownPreview);
+      const satellite = await render(MarkdownPreview);
       await expect.element(owner.getByText('Markdown is open in another window')).toBeVisible();
 
       // Scoped via `.locator` (bound to this render's own container) rather than the plain
@@ -160,16 +160,16 @@ describe('MarkdownPreview', () => {
       const importButton = owner.locator.getByRole('button', { name: 'Import HTML' });
       await expect.element(importButton).toBeDisabled();
 
-      owner.unmount();
-      satellite.unmount();
+      await owner.unmount();
+      await satellite.unmount();
     });
 
     it('disables Clear in the owner while the editor pane is popped out, and keeps it usable in the satellite', async () => {
-      const owner = render(MarkdownPreview, { initialContent: '# Hello' });
+      const owner = await render(MarkdownPreview, { initialContent: '# Hello' });
 
       const session = ownerSessionId(TOOL);
       setSearch(`?popout=editor&session=${session}`);
-      const satellite = render(MarkdownPreview);
+      const satellite = await render(MarkdownPreview);
       await expect.element(owner.getByText('Markdown is open in another window')).toBeVisible();
 
       // The bug this guards against: Clear used to write shared.markdown unconditionally, but the
@@ -187,8 +187,8 @@ describe('MarkdownPreview', () => {
       // the same shared value) reflects it too - the two windows stay in agreement.
       await expect.element(owner.getByRole('heading', { name: 'Hello' })).not.toBeInTheDocument();
 
-      owner.unmount();
-      satellite.unmount();
+      await owner.unmount();
+      await satellite.unmount();
     });
   });
 });

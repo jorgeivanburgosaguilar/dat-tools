@@ -37,7 +37,7 @@ describe('DiffChecker', () => {
   });
 
   it('renders two textareas in edit mode with an Original/Changed segmented control', async () => {
-    const screen = render(DiffChecker, { initialOriginal: 'a', initialChanged: 'b' });
+    const screen = await render(DiffChecker, { initialOriginal: 'a', initialChanged: 'b' });
     expect(screen.container.querySelectorAll('textarea')).toHaveLength(2);
     // exact: true - the segmented-control button's accessible name is 'Original'/'Changed'; the
     // per-pane pop-out button's is 'Open Original in a new window', which contains it as a
@@ -48,11 +48,11 @@ describe('DiffChecker', () => {
     await expect
       .element(screen.getByRole('button', { name: 'Changed', exact: true }))
       .toBeVisible();
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('switches to a read-only diff view on Find Difference and back to editing on Edit Texts', async () => {
-    const screen = render(DiffChecker, {
+    const screen = await render(DiffChecker, {
       initialOriginal: 'alpha\nbeta',
       initialChanged: 'alpha\ngamma'
     });
@@ -66,11 +66,11 @@ describe('DiffChecker', () => {
     expect(textareas).toHaveLength(2);
     expect(/** @type {HTMLTextAreaElement} */ (textareas[0]).value).toBe('alpha\nbeta');
     expect(/** @type {HTMLTextAreaElement} */ (textareas[1]).value).toBe('alpha\ngamma');
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('renders the same number of rows in both panes', async () => {
-    const screen = render(DiffChecker, {
+    const screen = await render(DiffChecker, {
       initialOriginal: 'a\nb\nc',
       initialChanged: 'a\nX\nc\nd'
     });
@@ -81,7 +81,7 @@ describe('DiffChecker', () => {
     const rightRows = right?.querySelectorAll('[data-diff-row]') ?? [];
     expect(leftRows.length).toBeGreaterThan(0);
     expect(leftRows.length).toBe(rightRows.length);
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('keeps the same row count on both panes after toggling Wrap on in diff mode', async () => {
@@ -89,7 +89,7 @@ describe('DiffChecker', () => {
     // below), which this component-only render doesn't have - so this only exercises the wiring:
     // the Wrap toggle exists in diff mode, and switching it on doesn't change how many rows either
     // pane renders (each pane still emits one row per cell, just with a different height style).
-    const screen = render(DiffChecker, {
+    const screen = await render(DiffChecker, {
       initialOriginal: 'a\nb\nc',
       initialChanged: 'a\nX\nc\nd'
     });
@@ -102,21 +102,21 @@ describe('DiffChecker', () => {
     const rightRows = right?.querySelectorAll('[data-diff-row]') ?? [];
     expect(leftRows.length).toBeGreaterThan(0);
     expect(leftRows.length).toBe(rightRows.length);
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('shows an identical-texts status for two equal inputs', async () => {
-    const screen = render(DiffChecker, {
+    const screen = await render(DiffChecker, {
       initialOriginal: 'same\ntext',
       initialChanged: 'same\ntext'
     });
     await screen.getByRole('button', { name: 'Find Difference' }).click();
     await expect.element(screen.getByText('Texts are identical.')).toBeVisible();
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('marks a single added space with a diff-char-added element', async () => {
-    const screen = render(DiffChecker, {
+    const screen = await render(DiffChecker, {
       initialOriginal: 'alpha beta',
       initialChanged: 'alpha  beta'
     });
@@ -125,11 +125,11 @@ describe('DiffChecker', () => {
     expect(added).not.toBeNull();
     // A diffed space always renders as its "·" glyph now, not the literal character.
     expect(added?.textContent).toBe('·');
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('always renders a whitespace glyph on a diffed span, with no toggle in the DOM', async () => {
-    const screen = render(DiffChecker, {
+    const screen = await render(DiffChecker, {
       initialOriginal: 'alpha beta',
       initialChanged: 'alpha  beta'
     });
@@ -140,11 +140,11 @@ describe('DiffChecker', () => {
 
     const buttons = Array.from(screen.container.querySelectorAll('button'));
     expect(buttons.some((b) => b.textContent?.trim() === 'Show whitespace')).toBe(false);
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('also renders a whitespace glyph on unchanged text (faint, but always present)', async () => {
-    const screen = render(DiffChecker, {
+    const screen = await render(DiffChecker, {
       initialOriginal: 'alpha beta',
       initialChanged: 'alpha  beta'
     });
@@ -157,22 +157,22 @@ describe('DiffChecker', () => {
       (el) => el.closest('.diff-char-added, .diff-char-removed') === null
     );
     expect(unchangedWs.length).toBeGreaterThan(0);
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('renders a pilcrow at the end of a line that has a line terminator', async () => {
-    const screen = render(DiffChecker, {
+    const screen = await render(DiffChecker, {
       initialOriginal: 'one\ntwo',
       initialChanged: 'one\ntwo'
     });
     await screen.getByRole('button', { name: 'Find Difference' }).click();
     const original = screen.container.querySelector('[data-pane="Original"]');
     expect(original?.textContent).toContain('¶');
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('renders hljs- classed spans after picking JavaScript', async () => {
-    const screen = render(DiffChecker, {
+    const screen = await render(DiffChecker, {
       initialOriginal: 'const a = 1;',
       initialChanged: 'const a = 2;'
     });
@@ -185,11 +185,11 @@ describe('DiffChecker', () => {
     await expect
       .poll(() => screen.container.querySelector('[class*="hljs-"]') !== null, { timeout: 5000 })
       .toBe(true);
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('auto-detects the language from a clear JavaScript sample on Find Difference', async () => {
-    const screen = render(DiffChecker, {
+    const screen = await render(DiffChecker, {
       initialOriginal: JS_SAMPLE,
       initialChanged: JS_SAMPLE.replace('Hello', 'Hi')
     });
@@ -197,11 +197,11 @@ describe('DiffChecker', () => {
 
     const select = /** @type {HTMLSelectElement} */ (screen.container.querySelector('select'));
     await expect.poll(() => select.value, { timeout: 5000 }).toBe('javascript');
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('keeps a manually picked language across a later Find Difference', async () => {
-    const screen = render(DiffChecker, {
+    const screen = await render(DiffChecker, {
       initialOriginal: JS_SAMPLE,
       initialChanged: JS_SAMPLE
     });
@@ -216,11 +216,11 @@ describe('DiffChecker', () => {
     // Give any stray auto-detect a moment to (not) land, then assert the manual pick held.
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(select.value).toBe('css');
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('leaves the language on plain for short, ambiguous text after Find Difference', async () => {
-    const screen = render(DiffChecker, {
+    const screen = await render(DiffChecker, {
       initialOriginal: 'const a = 1;',
       initialChanged: 'const a = 2;'
     });
@@ -229,11 +229,11 @@ describe('DiffChecker', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(select.value).toBe('plain');
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('adds a third, uncolored Source pane when toggled on, absent in edit mode', async () => {
-    const screen = render(DiffChecker, {
+    const screen = await render(DiffChecker, {
       initialOriginal: 'alpha\nbeta',
       initialChanged: 'alpha\ngamma'
     });
@@ -251,7 +251,7 @@ describe('DiffChecker', () => {
     const sourceRows = source?.querySelectorAll('[data-diff-row]') ?? [];
     const originalRows = original?.querySelectorAll('[data-diff-row]') ?? [];
     expect(sourceRows.length).toBe(originalRows.length);
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('locks vertical scroll between the two panes', async () => {
@@ -261,7 +261,10 @@ describe('DiffChecker', () => {
     // What's tested here is the scroll-lock wiring itself: force a genuine scrollable region
     // with inline styles, then confirm the $effect in each DiffPane actually mirrors scrollTop.
     const many = Array.from({ length: 200 }, (_, i) => `line ${i}`).join('\n');
-    const screen = render(DiffChecker, { initialOriginal: many, initialChanged: many + '\nextra' });
+    const screen = await render(DiffChecker, {
+      initialOriginal: many,
+      initialChanged: many + '\nextra'
+    });
     await screen.getByRole('button', { name: 'Find Difference' }).click();
 
     const left = /** @type {HTMLElement} */ (
@@ -279,11 +282,11 @@ describe('DiffChecker', () => {
     left.dispatchEvent(new Event('scroll', { bubbles: true }));
 
     await expect.poll(() => right.scrollTop, { timeout: 3000 }).toBe(100);
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('loads sample content, swaps panes, and clears back to edit mode', async () => {
-    const screen = render(DiffChecker, { initialOriginal: 'x', initialChanged: 'y' });
+    const screen = await render(DiffChecker, { initialOriginal: 'x', initialChanged: 'y' });
 
     await screen.getByRole('button', { name: 'Sample' }).click();
     let textareas = screen.container.querySelectorAll('textarea');
@@ -299,36 +302,49 @@ describe('DiffChecker', () => {
     textareas = screen.container.querySelectorAll('textarea');
     expect(/** @type {HTMLTextAreaElement} */ (textareas[0]).value).toBe('');
     expect(/** @type {HTMLTextAreaElement} */ (textareas[1]).value).toBe('');
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('disables the Find Difference button when both panes are empty', async () => {
-    const screen = render(DiffChecker, { initialOriginal: '', initialChanged: '' });
+    const screen = await render(DiffChecker, { initialOriginal: '', initialChanged: '' });
     await expect.element(screen.getByRole('button', { name: 'Find Difference' })).toBeDisabled();
-    screen.unmount();
+    await screen.unmount();
   });
 
   describe('pop-out', () => {
     it('does not hide a pane just from clicking pop-out when the popup is blocked', async () => {
       vi.spyOn(window, 'open').mockReturnValue(null);
-      const screen = render(DiffChecker, { initialOriginal: 'a', initialChanged: 'b' });
+      const screen = await render(DiffChecker, { initialOriginal: 'a', initialChanged: 'b' });
 
-      await screen.getByRole('button', { name: 'Open Original in a new window' }).click();
+      // A plain `.click()` locator interaction on this button silently no-ops in
+      // vitest-browser-playwright 5.0.0 (the click resolves, but no event ever reaches the
+      // element). Likely an iframe-edge coordinate mismatch in the CDP click dispatch -
+      // Vitest Browser Mode runs each spec file in its own iframe (see
+      // packages/browser/src/client/orchestrator.ts) and this button (like
+      // AgentTrajectoryViewer's analogous "Open Detail" button - see the comment there) sits
+      // at the very top of its toolbar row. Ruled out: wrong/ambiguous selector, an overlay
+      // intercepting the click, Svelte 5.57 specifically, raw playwright 1.63 specifically,
+      // and viewport size. Re-test with a plain locator click next time
+      // vitest/@vitest/browser-playwright bump past 5.0.0 - this may no longer be needed.
+      // Native DOM click as a workaround instead:
+      /** @type {HTMLElement} */ (
+        screen.container.querySelector('[aria-label="Open Original in a new window"]')
+      ).click();
 
       await expect
         .element(screen.getByRole('button', { name: 'Open Original in a new window' }))
         .toBeVisible();
       await expect.element(screen.getByText('Pop-up blocked by the browser')).toBeVisible();
-      screen.unmount();
+      await screen.unmount();
     });
 
     it('syncs the original text live to a satellite hosting that pane, and hides pop-out buttons once only one pane remains', async () => {
-      const owner = render(DiffChecker, { initialOriginal: 'a', initialChanged: 'b\nc' });
+      const owner = await render(DiffChecker, { initialOriginal: 'a', initialChanged: 'b\nc' });
 
       const session = ownerSessionId(TOOL);
       setSearch(`?popout=original&session=${session}`);
       const onsatellite = vi.fn();
-      const satellite = render(DiffChecker, { onsatellite });
+      const satellite = await render(DiffChecker, { onsatellite });
       await expect.poll(() => onsatellite.mock.calls).toEqual([[true, 'Original']]);
 
       // DiffLayout hides its pop-out controls once panes.length <= 1 - popping the last visible
@@ -340,16 +356,16 @@ describe('DiffChecker', () => {
       await satellite.getByPlaceholder('Paste the original text here…').fill('a\nnew line');
       await expect.element(owner.getByText('2 / 2 lines')).toBeVisible();
 
-      owner.unmount();
-      satellite.unmount();
+      await owner.unmount();
+      await satellite.unmount();
     });
 
     it('brings the pane home when the satellite returns', async () => {
-      const owner = render(DiffChecker, { initialOriginal: 'a', initialChanged: 'b' });
+      const owner = await render(DiffChecker, { initialOriginal: 'a', initialChanged: 'b' });
 
       const session = ownerSessionId(TOOL);
       setSearch(`?popout=changed&session=${session}`);
-      const satellite = render(DiffChecker);
+      const satellite = await render(DiffChecker);
       await expect
         .element(owner.getByRole('button', { name: 'Open Changed in a new window' }))
         .not.toBeInTheDocument();
@@ -360,16 +376,16 @@ describe('DiffChecker', () => {
         .element(owner.getByRole('button', { name: 'Open Changed in a new window' }))
         .toBeVisible();
 
-      owner.unmount();
-      satellite.unmount();
+      await owner.unmount();
+      await satellite.unmount();
     });
 
     it('switches a satellite from an editable textarea to a read-only diff pane when the owner runs Find Difference', async () => {
-      const owner = render(DiffChecker, { initialOriginal: 'a', initialChanged: 'b' });
+      const owner = await render(DiffChecker, { initialOriginal: 'a', initialChanged: 'b' });
 
       const session = ownerSessionId(TOOL);
       setSearch(`?popout=original&session=${session}`);
-      const satellite = render(DiffChecker);
+      const satellite = await render(DiffChecker);
       await expect
         .element(satellite.getByPlaceholder('Paste the original text here…'))
         .toBeVisible();
@@ -381,12 +397,12 @@ describe('DiffChecker', () => {
         .not.toBeInTheDocument();
       expect(satellite.container.querySelectorAll('textarea')).toHaveLength(0);
 
-      owner.unmount();
-      satellite.unmount();
+      await owner.unmount();
+      await satellite.unmount();
     });
 
     it('ships the computed diff to a satellite, which renders the diffed content with no editable textarea', async () => {
-      const owner = render(DiffChecker, {
+      const owner = await render(DiffChecker, {
         initialOriginal: 'line1\nline2',
         initialChanged: 'line1\nreplaced'
       });
@@ -395,24 +411,24 @@ describe('DiffChecker', () => {
       const session = ownerSessionId(TOOL);
       setSearch(`?popout=changed&session=${session}`);
       const onsatellite = vi.fn();
-      const satellite = render(DiffChecker, { onsatellite });
+      const satellite = await render(DiffChecker, { onsatellite });
       await expect.poll(() => onsatellite.mock.calls).toEqual([[true, 'Changed']]);
 
       expect(satellite.container.querySelectorAll('textarea')).toHaveLength(0);
       await expect.element(satellite.getByText('replaced')).toBeVisible();
 
-      owner.unmount();
-      satellite.unmount();
+      await owner.unmount();
+      await satellite.unmount();
     });
 
     it('shows a placeholder in a Source satellite once the owner leaves the diff view', async () => {
-      const owner = render(DiffChecker, { initialOriginal: 'a', initialChanged: 'b' });
+      const owner = await render(DiffChecker, { initialOriginal: 'a', initialChanged: 'b' });
       await owner.getByRole('button', { name: 'Find Difference' }).click();
       await owner.getByRole('button', { name: 'Source pane' }).click();
 
       const session = ownerSessionId(TOOL);
       setSearch(`?popout=source&session=${session}`);
-      const satellite = render(DiffChecker);
+      const satellite = await render(DiffChecker);
       await expect
         .element(satellite.getByText('only available in the diff view', { exact: false }))
         .not.toBeInTheDocument();
@@ -422,15 +438,15 @@ describe('DiffChecker', () => {
         .element(satellite.getByText('only available in the diff view', { exact: false }))
         .toBeVisible();
 
-      owner.unmount();
-      satellite.unmount();
+      await owner.unmount();
+      await satellite.unmount();
     });
 
     it('keeps a popped-out pane in sync with the owner via scroll fraction, not pixels', async () => {
       // Same real-scrollable-region trick as "locks vertical scroll between the two panes" above,
       // now across two separate component instances standing in for two windows.
       const many = Array.from({ length: 200 }, (_, i) => `line ${i}`).join('\n');
-      const owner = render(DiffChecker, {
+      const owner = await render(DiffChecker, {
         initialOriginal: many,
         initialChanged: many + '\nextra'
       });
@@ -438,7 +454,7 @@ describe('DiffChecker', () => {
 
       const session = ownerSessionId(TOOL);
       setSearch(`?popout=original&session=${session}`);
-      const satellite = render(DiffChecker);
+      const satellite = await render(DiffChecker);
       await expect
         .poll(() => satellite.container.querySelector('[data-pane="Original"]'))
         .not.toBeNull();
@@ -459,8 +475,8 @@ describe('DiffChecker', () => {
 
       await expect.poll(() => ownerChanged.scrollTop, { timeout: 3000 }).toBeGreaterThan(0);
 
-      owner.unmount();
-      satellite.unmount();
+      await owner.unmount();
+      await satellite.unmount();
     });
   });
 });

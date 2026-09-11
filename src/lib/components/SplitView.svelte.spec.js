@@ -4,49 +4,49 @@ import SplitViewHarness from './SplitViewHarness.svelte';
 
 describe('SplitView', () => {
   it('renders both panes by default', async () => {
-    const screen = render(SplitViewHarness);
+    const screen = await render(SplitViewHarness);
     await expect.element(screen.getByTestId('pane-first')).toBeVisible();
     await expect.element(screen.getByTestId('pane-second')).toBeVisible();
   });
 
   it('renders the actions and status snippets', async () => {
-    const screen = render(SplitViewHarness);
+    const screen = await render(SplitViewHarness);
     await expect.element(screen.getByTestId('actions')).toBeVisible();
     await expect.element(screen.getByTestId('status')).toBeVisible();
   });
 
   describe('poppedId', () => {
     it('hides the first pane and expands the second when poppedId is "first"', async () => {
-      const screen = render(SplitViewHarness, { poppedId: 'first' });
+      const screen = await render(SplitViewHarness, { poppedId: 'first' });
       await expect.element(screen.getByTestId('pane-first')).not.toBeInTheDocument();
       await expect.element(screen.getByTestId('pane-second')).toBeVisible();
     });
 
     it('hides the second pane and expands the first when poppedId is "second"', async () => {
-      const screen = render(SplitViewHarness, { poppedId: 'second' });
+      const screen = await render(SplitViewHarness, { poppedId: 'second' });
       await expect.element(screen.getByTestId('pane-first')).toBeVisible();
       await expect.element(screen.getByTestId('pane-second')).not.toBeInTheDocument();
     });
 
     it('hides the view-mode segmented control while a pane is popped', async () => {
-      const screen = render(SplitViewHarness, { poppedId: 'second' });
+      const screen = await render(SplitViewHarness, { poppedId: 'second' });
       await expect.element(screen.getByRole('button', { name: 'Split' })).not.toBeInTheDocument();
     });
 
     it('shows a note naming which pane is open elsewhere', async () => {
-      const screen = render(SplitViewHarness, { poppedId: 'second' });
+      const screen = await render(SplitViewHarness, { poppedId: 'second' });
       await expect.element(screen.getByText('Preview is open in another window')).toBeVisible();
     });
 
     it('still renders the actions snippet while a pane is popped', async () => {
-      const screen = render(SplitViewHarness, { poppedId: 'second' });
+      const screen = await render(SplitViewHarness, { poppedId: 'second' });
       await expect.element(screen.getByTestId('actions')).toBeVisible();
     });
   });
 
   describe('restoring the previous view mode', () => {
     it('keeps the view mode chosen before a pop-out and restores it once poppedId clears', async () => {
-      const screen = render(SplitViewHarness);
+      const screen = await render(SplitViewHarness);
 
       // Switch to Editor-only before anything is popped.
       await screen.getByRole('button', { name: 'Editor' }).click();
@@ -67,7 +67,7 @@ describe('SplitView', () => {
     });
 
     it('restores Split mode (both panes) after a pop-out if that was the prior mode', async () => {
-      const screen = render(SplitViewHarness);
+      const screen = await render(SplitViewHarness);
       await expect.element(screen.getByTestId('pane-first')).toBeVisible();
       await expect.element(screen.getByTestId('pane-second')).toBeVisible();
 

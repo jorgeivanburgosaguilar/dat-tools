@@ -13,7 +13,7 @@ function setSearch(search) {
   history.replaceState(null, '', url.toString());
 }
 
-/** @param {ReturnType<typeof render>} screen */
+/** @param {Awaited<ReturnType<typeof render>>} screen */
 async function loadExample(screen) {
   await screen.getByRole('button', { name: 'Load example' }).click();
   await expect.poll(() => screen.container.querySelectorAll('[data-step-index]').length).toBe(6);
@@ -31,32 +31,32 @@ describe('AgentTrajectoryViewer', () => {
   });
 
   it('starts on the loader with no steps rendered', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await expect.element(screen.getByRole('button', { name: 'Load example' })).toBeVisible();
     expect(screen.container.querySelectorAll('[data-step-index]').length).toBe(0);
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('shows the bundled example steps after clicking Load example', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);
     await expect.element(screen.getByText('#1')).toBeVisible();
     await expect.element(screen.getByText('#6')).toBeVisible();
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('shows an invalid JSON error and stays on the loader', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await screen.getByLabelText('Paste trajectory JSON').fill('{ not valid json');
     await screen.getByRole('button', { name: 'Load trajectory' }).click();
     await expect.element(screen.getByRole('alert')).toBeVisible();
     await expect.element(screen.getByRole('button', { name: 'Load example' })).toBeVisible();
     expect(screen.container.querySelectorAll('[data-step-index]').length).toBe(0);
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('swaps the detail pane when a different step is clicked', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);
     // Step 1 (the default selection) is the user's task prompt. Scoped to the rendered message
     // itself (data-testid="step-message"), not the page as a whole - the same substring also
@@ -73,11 +73,11 @@ describe('AgentTrajectoryViewer', () => {
         screen.getByTestId('step-message').getByText(/Let's look at it before making a change/)
       )
       .toBeVisible();
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('renders reasoning content in a dedicated section when present', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);
 
     const rows = screen.container.querySelectorAll('[data-step-index]');
@@ -86,11 +86,11 @@ describe('AgentTrajectoryViewer', () => {
     await expect
       .element(screen.getByTestId('step-reasoning').getByText(/user reported a bug in `calc.py`/))
       .toBeVisible();
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('filters the list down to steps matching the search query', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);
 
     await screen.getByRole('searchbox', { name: 'Search steps...' }).fill('batch');
@@ -98,11 +98,11 @@ describe('AgentTrajectoryViewer', () => {
     await expect.poll(() => screen.container.querySelectorAll('[data-step-index]').length).toBe(1);
     const [remaining] = screen.container.querySelectorAll('[data-step-index]');
     expect(/** @type {HTMLElement} */ (remaining).dataset.stepIndex).toBe('4');
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('filters by issue type using the issue dropdown', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);
 
     const issueSelect = screen.getByRole('combobox', { name: 'Filter by issue' });
@@ -111,11 +111,11 @@ describe('AgentTrajectoryViewer', () => {
     await expect.poll(() => screen.container.querySelectorAll('[data-step-index]').length).toBe(1);
     const [remaining] = screen.container.querySelectorAll('[data-step-index]');
     expect(/** @type {HTMLElement} */ (remaining).dataset.stepIndex).toBe('2');
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('filters down to only the error step with Errors only', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);
 
     const issueSelect = screen.getByRole('combobox', { name: 'Filter by issue' });
@@ -124,22 +124,22 @@ describe('AgentTrajectoryViewer', () => {
     await expect.poll(() => screen.container.querySelectorAll('[data-step-index]').length).toBe(1);
     const [remaining] = screen.container.querySelectorAll('[data-step-index]');
     expect(/** @type {HTMLElement} */ (remaining).dataset.stepIndex).toBe('3');
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('shows error, warning, and complete badges on the matching step rows', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);
 
     const rows = screen.container.querySelectorAll('[data-step-index]');
     expect(rows[2].textContent).toContain('warning');
     expect(rows[3].textContent).toContain('error');
     expect(rows[5].textContent).toContain('complete');
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('shows a severity-colored notice banner for a warning and an error observation', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);
 
     const rows = screen.container.querySelectorAll('[data-step-index]');
@@ -152,11 +152,11 @@ describe('AgentTrajectoryViewer', () => {
     await expect
       .element(screen.getByTestId('observation-notice').getByText(/unterminated object/))
       .toBeVisible();
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('shows recovered fields and a malformed-output badge for an unparseable message', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);
 
     const rows = screen.container.querySelectorAll('[data-step-index]');
@@ -166,11 +166,11 @@ describe('AgentTrajectoryViewer', () => {
     await expect
       .element(screen.getByTestId('step-message').getByText(/stray \+ 1 is the bug/))
       .toBeVisible();
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('expands and collapses all detail sections with the Expand/Collapse buttons', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);
 
     const rows = screen.container.querySelectorAll('[data-step-index]');
@@ -182,11 +182,11 @@ describe('AgentTrajectoryViewer', () => {
 
     await screen.getByRole('button', { name: 'Expand all' }).click();
     await expect.element(screen.getByTestId('step-message')).toBeVisible();
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('jumps through every issue step when clicking Next issue, then wraps around', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);
 
     const nextBtn = screen.getByRole('button', { name: /Next issue/ });
@@ -209,11 +209,11 @@ describe('AgentTrajectoryViewer', () => {
     // No later issue step exists, so it wraps back to the first one.
     await nextBtn.click();
     await expect.poll(selectedStepIndex).toBe('2');
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('moves the selection down with j and shows the next step detail', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);
     await expect
       .element(screen.getByTestId('step-message').getByText(/failing test/))
@@ -234,11 +234,11 @@ describe('AgentTrajectoryViewer', () => {
         screen.getByTestId('step-message').getByText(/Let's look at it before making a change/)
       )
       .toBeVisible();
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('renders an unknown step field as a metadata row', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);
 
     const rows = screen.container.querySelectorAll('[data-step-index]');
@@ -249,11 +249,11 @@ describe('AgentTrajectoryViewer', () => {
     const metadata = screen.getByTestId('step-metadata');
     await expect.element(metadata.getByText('sandbox_id', { exact: true })).toBeVisible();
     await expect.element(metadata.getByText('demo-sandbox-1', { exact: true })).toBeVisible();
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('flips the Raw JSON copy button to confirm the copy', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);
 
     await screen.getByText('Raw JSON').click();
@@ -261,66 +261,78 @@ describe('AgentTrajectoryViewer', () => {
     await expect.element(copyButton).toBeVisible();
     await copyButton.click();
     await expect.element(screen.getByRole('button', { name: '✓ Copied' })).toBeVisible();
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('returns to the loader when New JSON is clicked', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);
 
     await screen.getByRole('button', { name: 'New JSON' }).click();
 
     await expect.element(screen.getByRole('button', { name: 'Load example' })).toBeVisible();
     expect(screen.container.querySelectorAll('[data-step-index]').length).toBe(0);
-    screen.unmount();
+    await screen.unmount();
   });
 
   it('focuses search input when / is pressed', async () => {
-    const screen = render(AgentTrajectoryViewer);
+    const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true }));
 
     const searchInput = screen.getByRole('searchbox', { name: 'Search steps...' });
     await expect.element(searchInput).toHaveFocus();
-    screen.unmount();
+    await screen.unmount();
   });
 
   describe('pop-out', () => {
     it('does not hide a pane just from clicking pop-out when the popup is blocked', async () => {
       vi.spyOn(window, 'open').mockReturnValue(null);
-      const screen = render(AgentTrajectoryViewer);
+      const screen = await render(AgentTrajectoryViewer);
       await loadExample(screen);
 
-      await screen.getByRole('button', { name: 'Open Detail in a new window' }).click();
+      // A plain `.click()` locator interaction on this button silently no-ops in
+      // vitest-browser-playwright 5.0.0 (the click resolves, but no event ever reaches the
+      // element). Likely an iframe-edge coordinate mismatch in the CDP click dispatch -
+      // Vitest Browser Mode runs each spec file in its own iframe (see
+      // packages/browser/src/client/orchestrator.ts) and this button sits at the very top
+      // of its toolbar row. Ruled out: wrong/ambiguous selector, an overlay intercepting
+      // the click, Svelte 5.57 specifically, raw playwright 1.63 specifically, and viewport
+      // size. Re-test with a plain locator click next time vitest/@vitest/browser-playwright
+      // bump past 5.0.0 - this may no longer be needed.
+      // Native DOM click as a workaround instead, as `swaps the detail pane...` above does:
+      /** @type {HTMLElement} */ (
+        screen.container.querySelector('[aria-label="Open Detail in a new window"]')
+      ).click();
 
       await expect
         .element(screen.getByRole('button', { name: 'Open Detail in a new window' }))
         .toBeVisible();
       await expect.element(screen.getByText('Pop-up blocked by the browser')).toBeVisible();
-      screen.unmount();
+      await screen.unmount();
     });
 
     it('stays on the normal loader when opened directly with a popout URL but no owner ever answers', async () => {
       setSearch('?popout=detail&session=orphan-session');
       const onsatellite = vi.fn();
-      const screen = render(AgentTrajectoryViewer, { onsatellite });
+      const screen = await render(AgentTrajectoryViewer, { onsatellite });
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       expect(onsatellite).not.toHaveBeenCalled();
       await expect.element(screen.getByRole('button', { name: 'Load example' })).toBeVisible();
-      screen.unmount();
+      await screen.unmount();
     });
 
     it('syncs the selected step to a Detail satellite, following the owner clicking a different row', async () => {
-      const owner = render(AgentTrajectoryViewer);
+      const owner = await render(AgentTrajectoryViewer);
       await loadExample(owner);
 
       const session = ownerSessionId(TOOL);
       setSearch(`?popout=detail&session=${session}`);
       const onsatellite = vi.fn();
-      const satellite = render(AgentTrajectoryViewer, { onsatellite });
+      const satellite = await render(AgentTrajectoryViewer, { onsatellite });
       await expect.poll(() => onsatellite.mock.calls).toEqual([[true, 'Detail']]);
 
       await expect
@@ -336,17 +348,17 @@ describe('AgentTrajectoryViewer', () => {
         )
         .toBeVisible();
 
-      owner.unmount();
-      satellite.unmount();
+      await owner.unmount();
+      await satellite.unmount();
     });
 
     it('renders hljs- classed spans in a Detail satellite, proving it loaded its own highlighter', async () => {
-      const owner = render(AgentTrajectoryViewer);
+      const owner = await render(AgentTrajectoryViewer);
       await loadExample(owner);
 
       const session = ownerSessionId(TOOL);
       setSearch(`?popout=detail&session=${session}`);
-      const satellite = render(AgentTrajectoryViewer);
+      const satellite = await render(AgentTrajectoryViewer);
       await expect
         .element(satellite.getByTestId('step-message').getByText(/failing test/))
         .toBeVisible();
@@ -358,17 +370,17 @@ describe('AgentTrajectoryViewer', () => {
         })
         .toBe(true);
 
-      owner.unmount();
-      satellite.unmount();
+      await owner.unmount();
+      await satellite.unmount();
     });
 
     it('lets a Steps satellite search/filter and select a row, updating the owner Detail pane', async () => {
-      const owner = render(AgentTrajectoryViewer);
+      const owner = await render(AgentTrajectoryViewer);
       await loadExample(owner);
 
       const session = ownerSessionId(TOOL);
       setSearch(`?popout=steps&session=${session}`);
-      const satellite = render(AgentTrajectoryViewer);
+      const satellite = await render(AgentTrajectoryViewer);
       await expect
         .poll(() => satellite.container.querySelectorAll('[data-step-index]').length)
         .toBe(6);
@@ -386,17 +398,17 @@ describe('AgentTrajectoryViewer', () => {
 
       await expect.element(owner.getByText('Step 5')).toBeVisible();
 
-      owner.unmount();
-      satellite.unmount();
+      await owner.unmount();
+      await satellite.unmount();
     });
 
     it('syncs the issue filter from a Steps satellite back to the owner list', async () => {
-      const owner = render(AgentTrajectoryViewer);
+      const owner = await render(AgentTrajectoryViewer);
       await loadExample(owner);
 
       const session = ownerSessionId(TOOL);
       setSearch(`?popout=steps&session=${session}`);
-      const satellite = render(AgentTrajectoryViewer);
+      const satellite = await render(AgentTrajectoryViewer);
       await expect
         .poll(() => satellite.container.querySelectorAll('[data-step-index]').length)
         .toBe(6);
@@ -417,17 +429,17 @@ describe('AgentTrajectoryViewer', () => {
 
       await expect.element(owner.getByText('Step 4')).toBeVisible();
 
-      owner.unmount();
-      satellite.unmount();
+      await owner.unmount();
+      await satellite.unmount();
     });
 
     it('brings the pane home when the satellite returns', async () => {
-      const owner = render(AgentTrajectoryViewer);
+      const owner = await render(AgentTrajectoryViewer);
       await loadExample(owner);
 
       const session = ownerSessionId(TOOL);
       setSearch(`?popout=detail&session=${session}`);
-      const satellite = render(AgentTrajectoryViewer);
+      const satellite = await render(AgentTrajectoryViewer);
       await expect
         .element(owner.getByRole('button', { name: 'Open Detail in a new window' }))
         .not.toBeInTheDocument();
@@ -438,17 +450,17 @@ describe('AgentTrajectoryViewer', () => {
         .element(owner.getByRole('button', { name: 'Open Detail in a new window' }))
         .toBeVisible();
 
-      owner.unmount();
-      satellite.unmount();
+      await owner.unmount();
+      await satellite.unmount();
     });
 
     it('shows a waiting placeholder in a satellite once the owner resets via New JSON', async () => {
-      const owner = render(AgentTrajectoryViewer);
+      const owner = await render(AgentTrajectoryViewer);
       await loadExample(owner);
 
       const session = ownerSessionId(TOOL);
       setSearch(`?popout=detail&session=${session}`);
-      const satellite = render(AgentTrajectoryViewer);
+      const satellite = await render(AgentTrajectoryViewer);
       await expect
         .element(satellite.getByTestId('step-message').getByText(/failing test/))
         .toBeVisible();
@@ -459,8 +471,8 @@ describe('AgentTrajectoryViewer', () => {
         .element(satellite.getByText('Waiting for the main window', { exact: false }))
         .toBeVisible();
 
-      owner.unmount();
-      satellite.unmount();
+      await owner.unmount();
+      await satellite.unmount();
     });
   });
 });
