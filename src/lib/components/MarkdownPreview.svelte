@@ -6,7 +6,7 @@
   import MarkdownEditorPane from '$lib/components/MarkdownEditorPane.svelte';
   import MarkdownRenderedPane from '$lib/components/MarkdownRenderedPane.svelte';
   import PopoutSatelliteBar from '$lib/components/PopoutSatelliteBar.svelte';
-  import HtmlTableImportModal from '$lib/components/HtmlTableImportModal.svelte';
+  import HtmlImportModal from '$lib/components/HtmlImportModal.svelte';
   import 'github-markdown-css/github-markdown.css';
 
   const TOOL = 'markdown-preview';
@@ -39,12 +39,12 @@
   /** @type {'md' | 'html' | ''} */
   let copied = $state('');
 
-  // Tracks the caret so "Import HTML Table" can insert at the right spot; defaults to the end of
+  // Tracks the caret so "Import HTML" can insert at the right spot; defaults to the end of
   // the document so inserting before ever focusing the textarea appends. Deliberately NOT part of
   // `shared` - it's local UI bookkeeping for the editor pane's own window, not synced state.
   let caret = $state(untrack(() => initialContent).length);
 
-  let showTableImport = $state(false);
+  let showHtmlImport = $state(false);
 
   /** @type {{ focusAt: (position: number) => void } | null} */
   let editorPaneRef = $state(null);
@@ -143,9 +143,10 @@
 
   /**
    * Splices `text` into the document at the last known caret position, adding surrounding
-   * blank lines only where one isn't already present (a GFM table needs a blank line before
-   * it to be recognized), then moves the caret to the end of the inserted block. Only reachable
-   * while this window hosts the editor pane (see the `hostsEditor` guard on the toolbar button).
+   * blank lines only where one isn't already present (most block-level markdown - headings,
+   * lists, blockquotes, tables - needs a blank line around it to be recognized), then moves
+   * the caret to the end of the inserted block. Only reachable while this window hosts the
+   * editor pane (see the `hostsEditor` guard on the toolbar button).
    * @param {string} text
    */
   async function insertAtCursor(text) {
@@ -161,7 +162,7 @@
     const insertEnd = before.length + insertion.length;
 
     shared.markdown = before + insertion + after;
-    showTableImport = false;
+    showHtmlImport = false;
 
     await tick();
     editorPaneRef?.focusAt(insertEnd);
@@ -174,13 +175,13 @@
     <span class="text-xs text-red-500 dark:text-red-400">Pop-up blocked by the browser</span>
   {/if}
   <button
-    onclick={() => (showTableImport = true)}
+    onclick={() => (showHtmlImport = true)}
     disabled={!hostsEditor}
     class="rounded px-2 py-1 text-xs font-medium transition-colors {hostsEditor
       ? 'text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
       : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
   >
-    Import HTML Table
+    Import HTML
   </button>
   <button
     onclick={clear}
@@ -261,11 +262,11 @@
   </SplitView>
 {/if}
 
-<!-- Rendered regardless of branch: `showTableImport` is local, per-window UI state (not part of
-     `shared`), so it can only ever be set true from this same window's own "Import HTML Table"
+<!-- Rendered regardless of branch: `showHtmlImport` is local, per-window UI state (not part of
+     `shared`), so it can only ever be set true from this same window's own "Import HTML"
      button - which is itself disabled unless this window hosts the editor pane. -->
-<HtmlTableImportModal
-  open={showTableImport}
+<HtmlImportModal
+  open={showHtmlImport}
   oninsert={insertAtCursor}
-  onclose={() => (showTableImport = false)}
+  onclose={() => (showHtmlImport = false)}
 />

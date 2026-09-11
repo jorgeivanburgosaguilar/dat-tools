@@ -48,6 +48,19 @@ describe('MarkdownPreview', () => {
     screen.unmount();
   });
 
+  it('converts pasted HTML to markdown and inserts it at the cursor via Import HTML', async () => {
+    const screen = render(MarkdownPreview, { initialContent: '' });
+
+    await screen.getByRole('button', { name: 'Import HTML' }).click();
+    await screen.getByPlaceholder(/Paste any HTML here/).fill('<h1>Hi</h1><p>Yo</p>');
+    await screen.getByRole('button', { name: 'Insert' }).click();
+
+    await expect
+      .element(screen.getByPlaceholder('Type your markdown here...'))
+      .toHaveValue('# Hi\n\nYo');
+    screen.unmount();
+  });
+
   it('does not call onsatellite when rendered normally (no popout request in the URL)', async () => {
     const onsatellite = vi.fn();
     const screen = render(MarkdownPreview, { initialContent: '', onsatellite });
@@ -132,7 +145,7 @@ describe('MarkdownPreview', () => {
       satellite.unmount();
     });
 
-    it('disables Import HTML Table in the owner while the editor pane is popped out', async () => {
+    it('disables Import HTML in the owner while the editor pane is popped out', async () => {
       const owner = render(MarkdownPreview, { initialContent: '# Hello' });
 
       const session = ownerSessionId(TOOL);
@@ -144,7 +157,7 @@ describe('MarkdownPreview', () => {
       // `getByRole` query (bound to `document.body`, shared by both instances in this test) - the
       // satellite now renders the same `actions` snippet too, so an unscoped query would be
       // ambiguous between the two windows' buttons.
-      const importButton = owner.locator.getByRole('button', { name: 'Import HTML Table' });
+      const importButton = owner.locator.getByRole('button', { name: 'Import HTML' });
       await expect.element(importButton).toBeDisabled();
 
       owner.unmount();
@@ -163,7 +176,7 @@ describe('MarkdownPreview', () => {
       // send effect only broadcasts from the window hosting the editor - so clicking it here would
       // blank this window's preview while leaving the satellite's text untouched, silently
       // desyncing the two windows forever after. Scoped via `.locator` - see the comment on the
-      // Import HTML Table test above for why an unscoped query would be ambiguous here.
+      // Import HTML test above for why an unscoped query would be ambiguous here.
       await expect.element(owner.locator.getByRole('button', { name: 'Clear' })).toBeDisabled();
 
       await satellite.locator.getByRole('button', { name: 'Clear' }).click();

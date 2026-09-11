@@ -1,14 +1,14 @@
 <script>
-  import { htmlTableToMarkdown } from '$lib/html-table-to-markdown.js';
+  import { htmlToMarkdown } from '$lib/html-to-markdown.js';
 
   /**
-   * @typedef {Object} HtmlTableImportModalProps
+   * @typedef {Object} HtmlImportModalProps
    * @property {boolean} [open]
    * @property {(markdown: string) => void} [oninsert]
    * @property {() => void} [onclose]
    */
 
-  /** @type {HtmlTableImportModalProps} */
+  /** @type {HtmlImportModalProps} */
   let { open = false, oninsert = () => {}, onclose = () => {} } = $props();
 
   let html = $state('');
@@ -16,12 +16,11 @@
   let dialogEl = $state(null);
 
   let result = $derived.by(() => {
-    if (!html.trim()) return { markdown: '', tableCount: 0, error: '' };
+    if (!html.trim()) return { markdown: '', error: '' };
     try {
-      const { markdown, tableCount } = htmlTableToMarkdown(html);
-      return { markdown, tableCount, error: '' };
+      return { markdown: htmlToMarkdown(html), error: '' };
     } catch (err) {
-      return { markdown: '', tableCount: 0, error: /** @type {Error} */ (err).message };
+      return { markdown: '', error: /** @type {Error} */ (err).message };
     }
   });
 
@@ -56,10 +55,10 @@
   class="fixed inset-0 m-auto h-fit w-full max-w-2xl rounded-lg bg-white p-0 shadow-xl backdrop:bg-black/50 dark:bg-gray-800"
 >
   <div class="flex flex-col p-6">
-    <h3 class="mb-1 text-xl font-bold text-gray-900 dark:text-gray-100">Import HTML Table</h3>
+    <h3 class="mb-1 text-xl font-bold text-gray-900 dark:text-gray-100">Import HTML</h3>
     <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">
-      Paste HTML containing one or more &lt;table&gt; elements. It's converted to a markdown table
-      and inserted at your cursor.
+      Paste a full HTML fragment. Its headings, text, links, lists, code, images, and tables are
+      converted to Markdown and inserted at your cursor.
     </p>
 
     <span
@@ -70,16 +69,14 @@
     <textarea
       bind:value={html}
       class="h-64 resize-none rounded border border-gray-200 bg-white p-3 font-mono text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
-      placeholder="<table>...</table>"></textarea>
+      placeholder="<h1>Title</h1>
+<p>Paste any HTML here…</p>"></textarea>
 
     {#if result.error}
       <p class="mt-2 text-sm text-red-600 dark:text-red-400">{result.error}</p>
     {/if}
 
-    <div class="mt-4 flex items-center justify-between">
-      <span class="text-xs text-gray-500 dark:text-gray-400">
-        {result.tableCount} table{result.tableCount === 1 ? '' : 's'} converted
-      </span>
+    <div class="mt-4 flex justify-end">
       <div class="flex gap-3">
         <button
           onclick={handleCancel}

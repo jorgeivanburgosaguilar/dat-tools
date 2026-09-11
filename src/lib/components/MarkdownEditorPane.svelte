@@ -69,7 +69,7 @@
 
   /**
    * Focuses the textarea and moves the caret to `position`. Exposed for
-   * `MarkdownPreview.svelte`'s "Import HTML Table" flow, the one place outside this pane that
+   * `MarkdownPreview.svelte`'s "Import HTML" flow, the one place outside this pane that
    * legitimately needs to drive its focus/selection after inserting text.
    * @param {number} position
    */
