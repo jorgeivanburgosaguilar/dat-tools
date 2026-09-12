@@ -51,6 +51,9 @@
    */
   let { onstart = () => {}, onpause = () => {}, onstop = () => {}, ontick = () => {} } = $props();
 
+  /** How often to autosave a checkpoint while running, so a crash loses at most this much. */
+  const AUTOSAVE_INTERVAL_MS = 5 * 60 * 1000;
+
   let isRunning = $state(false);
   let isPaused = $state(false);
   let elapsedTime = $state(0);
@@ -65,6 +68,8 @@
   let lastLapElapsed = $state(0);
   let lastLapTimestamp = $state(0);
   let restoredPausedAt = $state(0);
+  let restoredFromAutosave = $state(false);
+  let lastCheckpointElapsed = $state(0);
 
   $effect(() => {
     if (!isRunning) return;
@@ -75,6 +80,9 @@
         const totalSeconds = Math.floor(elapsedTime / 1000);
         if (totalSeconds > 0 && totalSeconds % 5 === 0) {
           ontick({ elapsedTime });
+        }
+        if (elapsedTime - lastCheckpointElapsed >= AUTOSAVE_INTERVAL_MS) {
+          saveCheckpoint('autosave');
         }
       });
     }, 1000);
@@ -98,12 +106,31 @@
 
     elapsedTime = saved.elapsedTime;
     sessionStartTime = saved.sessionStartTime;
-    laps = saved.laps;
+    laps = saved.laps ?? [];
     lastLapElapsed = saved.lastLapElapsed;
     lastLapTimestamp = saved.lastLapTimestamp;
     restoredPausedAt = saved.pausedAt;
+    restoredFromAutosave = saved.reason === 'autosave';
+    lastCheckpointElapsed = saved.elapsedTime;
     isPaused = true;
     isRunning = false;
+  }
+
+  /**
+   * Persist the current session so it survives a reload or a crash.
+   * @param {'pause'|'autosave'} reason
+   */
+  function saveCheckpoint(reason) {
+    savePausedSession({
+      elapsedTime,
+      sessionStartTime,
+      laps,
+      lastLapElapsed,
+      lastLapTimestamp,
+      pausedAt: Date.now(),
+      reason
+    });
+    lastCheckpointElapsed = elapsedTime;
   }
 
   async function loadRecords() {
@@ -120,6 +147,11 @@
         lastLapElapsed = 0;
         lastLapTimestamp = 0;
         restoredPausedAt = 0;
+        restoredFromAutosave = false;
+        lastCheckpointElapsed = 0;
+        clearPausedSession();
+      } else {
+        lastCheckpointElapsed = elapsedTime;
       }
 
       if (!isPaused && elapsedTime > 0) {
@@ -146,14 +178,7 @@
       isRunning = false;
       isPaused = true;
 
-      savePausedSession({
-        elapsedTime,
-        sessionStartTime,
-        laps,
-        lastLapElapsed,
-        lastLapTimestamp,
-        pausedAt: Date.now()
-      });
+      saveCheckpoint('pause');
 
       onpause({ elapsedTime });
     }
@@ -161,7 +186,7 @@
 
   /**
    * Record a lap: the elapsed time since the previous lap (or session start
-   * for the first lap). Splits are kept in memory only.
+   * for the first lap). Immediately checkpointed so a lap is never at risk.
    */
   function lap() {
     if (!isRunning) return;
@@ -180,6 +205,8 @@
 
     lastLapElapsed = elapsedTime;
     lastLapTimestamp = now;
+
+    saveCheckpoint('autosave');
   }
 
   /**
@@ -189,6 +216,8 @@
     isRunning = false;
     isPaused = false;
     restoredPausedAt = 0;
+    restoredFromAutosave = false;
+    lastCheckpointElapsed = 0;
 
     clearPausedSession();
 
@@ -251,7 +280,9 @@
   </h1>
   {#if restoredPausedAt > 0}
     <p class="mt-2 font-mono text-sm text-gray-500 dark:text-gray-400">
-      Resumed from a pause on {formatDate(restoredPausedAt)} at {formatTimeOnly(restoredPausedAt)}
+      {restoredFromAutosave ? 'Recovered from an autosave' : 'Resumed from a pause'} on {formatDate(
+        restoredPausedAt
+      )} at {formatTimeOnly(restoredPausedAt)}
     </p>
   {/if}
 </div>
@@ -295,7 +326,7 @@
   </button>
 </div>
 
-<!-- Laps Section (in-memory only, cleared on a fresh start) -->
+<!-- Laps Section (autosaved every 5 min and on each lap, cleared on a fresh start) -->
 {#if laps.length > 0}
   <div
     class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-800"

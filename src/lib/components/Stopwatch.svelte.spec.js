@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import Stopwatch from './Stopwatch.svelte';
 import { clearAllRecords } from '$lib/stopwatch-db';
-import { clearPausedSession } from '$lib/stopwatch-storage';
+import { clearPausedSession, loadPausedSession } from '$lib/stopwatch-storage';
 
 describe('Stopwatch', () => {
   beforeEach(() => {
@@ -218,6 +218,105 @@ describe('Stopwatch', () => {
       await screen.getByRole('button', { name: 'Stop' }).click();
       await expect.element(screen.getByText(/⏳ Lap 2:/)).toBeVisible();
       await expect.element(screen.getByText(/⏳ Lap 3:/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Autosave checkpoints', () => {
+    it('writes nothing before the 5-minute interval elapses', async () => {
+      const screen = await render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await vi.advanceTimersByTimeAsync(60 * 1000);
+      expect(loadPausedSession()).toBeNull();
+    });
+
+    it('writes a running checkpoint at the 5-minute mark without pausing', async () => {
+      const screen = await render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+
+      const saved = loadPausedSession();
+      expect(saved).not.toBeNull();
+      expect(saved?.reason).toBe('autosave');
+      expect(saved?.elapsedTime).toBeGreaterThanOrEqual(5 * 60 * 1000);
+
+      // The timer keeps running - this is not the same as a user pause.
+      await expect.element(screen.getByRole('button', { name: 'Pause' })).toBeVisible();
+      await expect.element(screen.getByRole('button', { name: 'Lap' })).toBeVisible();
+    });
+
+    it('overwrites the checkpoint with a later one at the 10-minute mark', async () => {
+      const screen = await render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+      const first = loadPausedSession();
+
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+      const second = loadPausedSession();
+
+      expect(second?.elapsedTime).toBeGreaterThan(first?.elapsedTime ?? 0);
+    });
+
+    it('includes recorded laps in the periodic checkpoint', async () => {
+      const screen = await render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await vi.advanceTimersByTimeAsync(60 * 1000);
+      await screen.getByRole('button', { name: 'Lap' }).click();
+
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+      const saved = loadPausedSession();
+      expect(saved?.laps).toHaveLength(1);
+    });
+
+    it('writes a checkpoint immediately when a lap is recorded', async () => {
+      const screen = await render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await vi.advanceTimersByTimeAsync(60 * 1000);
+      await screen.getByRole('button', { name: 'Lap' }).click();
+
+      const saved = loadPausedSession();
+      expect(saved).not.toBeNull();
+      expect(saved?.laps).toHaveLength(1);
+    });
+
+    it('recovers a crashed running session as paused at the checkpoint', async () => {
+      const screen = await render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await vi.advanceTimersByTimeAsync(60 * 1000);
+      await screen.getByRole('button', { name: 'Lap' }).click();
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+
+      // Simulate a crash: unmount without pausing or stopping.
+      await screen.unmount();
+
+      const remounted = await render(Stopwatch);
+      await expect.element(remounted.getByRole('button', { name: 'Continue' })).toBeVisible();
+      await expect.element(remounted.getByText(/⏳ Lap 1:/)).toBeVisible();
+      await expect.element(remounted.getByText(/Recovered from an autosave/)).toBeVisible();
+    });
+
+    it('clears every checkpoint on Stop', async () => {
+      const screen = await render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+      expect(loadPausedSession()).not.toBeNull();
+
+      await screen.getByRole('button', { name: 'Stop' }).click();
+      expect(loadPausedSession()).toBeNull();
+
+      await screen.unmount();
+      const remounted = await render(Stopwatch);
+      await expect.element(remounted.getByRole('button', { name: 'Start' })).toBeVisible();
+    });
+
+    it('clears a stale checkpoint when starting a fresh session', async () => {
+      const screen = await render(Stopwatch);
+      await screen.getByRole('button', { name: 'Start' }).click();
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+      expect(loadPausedSession()).not.toBeNull();
+
+      await screen.getByRole('button', { name: 'Stop' }).click();
+      await screen.getByRole('button', { name: 'Start' }).click();
+      expect(loadPausedSession()).toBeNull();
     });
   });
 

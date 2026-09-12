@@ -1,8 +1,9 @@
 /**
- * localStorage persistence for a paused stopwatch session.
- * Privacy-first: state never leaves the browser, and is only ever written
- * when the user pauses. Starting fresh, lapping, or stopping never persists
- * here - stopping explicitly clears it since a stopped session is final.
+ * localStorage persistence for a paused or autosaved stopwatch session.
+ * Privacy-first: state never leaves the browser. Written when the user
+ * pauses, and periodically as a rolling checkpoint while running (see
+ * `reason` below) so a crash loses at most a few minutes of progress.
+ * Stopping explicitly clears it since a stopped session is final.
  */
 
 const STORAGE_KEY = 'dat-tools:stopwatch:paused-session';
@@ -22,7 +23,8 @@ const STORAGE_KEY = 'dat-tools:stopwatch:paused-session';
  * @property {PausedSessionLap[]} laps - Recorded laps for the current session
  * @property {number} lastLapElapsed - Elapsed time at the last recorded lap
  * @property {number} lastLapTimestamp - Wall-clock timestamp of the last recorded lap
- * @property {number} pausedAt - Wall-clock timestamp when the pause happened
+ * @property {number} pausedAt - Wall-clock timestamp when the pause/autosave happened
+ * @property {'pause'|'autosave'} [reason] - Why the snapshot was written; absent on older entries
  */
 
 /**

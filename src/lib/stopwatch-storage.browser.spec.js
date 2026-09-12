@@ -11,7 +11,8 @@ function makeSession() {
     laps: [{ id: 1, startTimestamp: 1000, endTimestamp: 30000, elapsedMinutes: 0 }],
     lastLapElapsed: 30000,
     lastLapTimestamp: 30000,
-    pausedAt: 66000
+    pausedAt: 66000,
+    reason: 'pause'
   };
 }
 
@@ -30,6 +31,12 @@ describe('stopwatch-storage', () => {
 
   it('round-trips a saved session through loadPausedSession', () => {
     const session = makeSession();
+    savePausedSession(session);
+    expect(loadPausedSession()).toEqual(session);
+  });
+
+  it('round-trips an autosave reason', () => {
+    const session = { ...makeSession(), reason: /** @type {const} */ ('autosave') };
     savePausedSession(session);
     expect(loadPausedSession()).toEqual(session);
   });
