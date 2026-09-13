@@ -1,5 +1,10 @@
-import { marked } from 'marked';
+import { marked, Renderer } from 'marked';
 import DOMPurify from 'dompurify';
+
+// marked's stock renderer, used to produce correctly escaped <pre><code> markup for fenced
+// code blocks. Only the data-line attribute below is ours — escaping of the code body and
+// the language class stays marked's job so it can't drift out of sync on upgrade.
+const baseRenderer = new Renderer();
 
 // Inline SVG data URI — no network request, renders entirely in the browser.
 const EXAMPLE_IMAGE_SRC = `data:image/svg+xml,${encodeURIComponent(
@@ -98,6 +103,12 @@ pnpm dev
 }
 \`\`\`
 
+\`\`\`html
+<div class="card">
+  <p>Raw HTML inside a fence stays literal text — it isn't rendered.</p>
+</div>
+\`\`\`
+
 ## Tables
 
 | Language   | Released | Typing   | Primary use          |
@@ -151,8 +162,9 @@ marked.use({
       return `<p ${dataLine(token)}>${text}</p>\n`;
     },
     code(token) {
-      const lang = token.lang ? ` class="language-${token.lang}"` : '';
-      return `<pre ${dataLine(token)}><code${lang}>${token.text}</code></pre>\n`;
+      // Delegate to marked's stock code renderer for correct escaping of the code body and
+      // the language class (see baseRenderer above), then inject our data-line attribute.
+      return baseRenderer.code(token).replace('<pre>', `<pre ${dataLine(token)}>`);
     },
     blockquote(token) {
       const body = this.parser.parse(token.tokens);
@@ -198,11 +210,19 @@ marked.use({
  * Tokens are annotated with _lineStart before parsing so the custom renderer can
  * embed data-line attributes used by the scroll sync feature.
  *
+ * A leading zero-width character (e.g. a BOM some editors prepend to files) is stripped
+ * before lexing, per marked's documented input caveat: https://github.com/markedjs/marked/issues/2139
+ *
  * @param {string} markdown
  * @returns {string}
  */
 export function renderMarkdown(markdown) {
-  const tokens = marked.lexer(markdown);
+  // Zero-width space, ZWNJ, ZWJ, LRM, RLM, BOM/ZWNBSP — written as escapes (not the
+  // literal invisible characters) so the source stays legible; six distinct single-character
+  // alternatives, not a combined grapheme cluster.
+  // eslint-disable-next-line no-misleading-character-class
+  const source = markdown.replace(/^[\u200b\u200c\u200d\u200e\u200f\ufeff]/, '');
+  const tokens = marked.lexer(source);
   let line = 1;
   for (const token of tokens) {
     /** @type {any} */ (token)._lineStart = line;

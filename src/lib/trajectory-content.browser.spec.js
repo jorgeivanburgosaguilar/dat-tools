@@ -104,6 +104,22 @@ describe('trajectory-content', () => {
       expect(html).toContain('<pre>');
       expect(html).not.toContain('<x>');
     });
+
+    // Guards codeRenderer()'s escapeHtml() call (trajectory-content.js) against the same bug
+    // markdown-preview.js had: a code renderer that interpolates the fence body raw instead of
+    // escaping it, so HTML/XML written inside a fence gets parsed as real markup.
+    it('shows a script tag in a fence as text instead of executing it', () => {
+      const html = renderRichText('```html\n<script>alert(1)</script>\n```', null);
+      const body = new DOMParser().parseFromString(html, 'text/html').body;
+      expect(body.querySelector('script')).toBeNull();
+      expect(body.querySelector('code')?.textContent).toContain('<script>alert(1)</script>');
+    });
+
+    it('shows an HTML element in a fence as text instead of rendering it', () => {
+      const html = renderRichText('```html\n<div class="x">hi</div>\n```', null);
+      const body = new DOMParser().parseFromString(html, 'text/html').body;
+      expect(body.querySelector('code')?.querySelector('*')).toBeNull();
+    });
   });
 
   describe('stripAnsi', () => {
