@@ -4,15 +4,26 @@
   import TrajectoryObservation from './TrajectoryObservation.svelte';
   import MetadataList from './MetadataList.svelte';
   import { guessCodeLanguage } from '$lib/trajectory-content.js';
+  import { applyHighlight } from '$lib/text-highlight.js';
 
   /**
    * @typedef {Object} TrajectoryStepDetailProps
    * @property {import('$lib/agent-trajectory.js').TrajectoryStep | null} step
    * @property {import('$lib/syntax-highlight.js').Lowlight | null} [lowlight]
+   * @property {string} [query] - Active search query, highlighted wherever it appears below
+   *   (including inside collapsed `<details>` sections, so it's already marked once expanded).
    */
 
   /** @type {TrajectoryStepDetailProps} */
-  let { step, lowlight = null } = $props();
+  let { step, lowlight = null, query = '' } = $props();
+
+  /** @type {HTMLDivElement | null} */
+  let detailRootEl = $state(null);
+
+  $effect(() => {
+    step;
+    applyHighlight(detailRootEl, query);
+  });
 
   let rawJson = $derived(step ? JSON.stringify(step.raw, null, 2) : '');
   let hasObservationSection = $derived(
@@ -57,7 +68,7 @@
 
 {#if step}
   {@const currentStep = step}
-  <div class="flex-1 space-y-4 overflow-y-auto p-4">
+  <div bind:this={detailRootEl} class="flex-1 space-y-4 overflow-y-auto p-4">
     <div
       class="flex flex-wrap items-center justify-between gap-2 text-[1em] text-gray-500 dark:text-gray-400"
     >

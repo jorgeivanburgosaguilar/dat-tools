@@ -186,6 +186,43 @@
     shared.selectedIndex = next !== undefined ? next : issueIndices[0];
   }
 
+  // "Findings" are the currently-matching steps (`visibleIndices`, which already folds in the
+  // active query together with the source/tool/issue filters) - the same unit the status line's
+  // "Showing X of Y steps" already counts by. Matching at the step level, rather than every raw
+  // text occurrence, means the counter and prev/next controls stay meaningful even while a match
+  // is sitting inside a collapsed `<details>` section in the detail pane.
+  let matchCount = $derived(shared.query.trim() ? visibleIndices.length : 0);
+  let matchPosition = $derived.by(() => {
+    if (matchCount === 0) return 0;
+    const pos = visibleIndices.indexOf(effectiveSelectedIndex);
+    return pos === -1 ? 0 : pos + 1;
+  });
+
+  /** @param {number} offset */
+  function stepToMatch(offset) {
+    if (visibleIndices.length === 0) return;
+    const pos = visibleIndices.indexOf(effectiveSelectedIndex);
+    const base = pos === -1 ? 0 : pos;
+    const next = (base + offset + visibleIndices.length) % visibleIndices.length;
+    shared.selectedIndex = visibleIndices[next];
+  }
+
+  function goToNextMatch() {
+    stepToMatch(1);
+  }
+
+  function goToPreviousMatch() {
+    stepToMatch(-1);
+  }
+
+  /** @param {KeyboardEvent} e */
+  function onSearchKeydown(e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (e.shiftKey) goToPreviousMatch();
+    else goToNextMatch();
+  }
+
   /** @param {KeyboardEvent} e */
   function onWindowKeydown(e) {
     // Guard on `searchInputEl` existing first - a Detail-only satellite window renders no search
@@ -229,6 +266,7 @@
       steps={shared.trajectory?.steps ?? []}
       selectedIndex={effectiveSelectedIndex}
       {visibleIndices}
+      query={shared.query}
       onselect={(i) => (shared.selectedIndex = i)}
     />
   </div>
@@ -242,7 +280,7 @@
         >Step Detail</span
       >
     </div>
-    <TrajectoryStepDetail step={selectedStep} {lowlight} />
+    <TrajectoryStepDetail step={selectedStep} {lowlight} query={shared.query} />
   </div>
 {/snippet}
 
@@ -252,8 +290,40 @@
     type="search"
     placeholder="Search steps..."
     bind:value={shared.query}
+    onkeydown={onSearchKeydown}
     class="w-36 rounded border border-gray-200 bg-white px-2 py-1 text-[1em] text-gray-900 outline-none focus:border-blue-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
   />
+  {#if shared.query.trim()}
+    <div class="flex items-center gap-0.5 text-[1em] text-gray-500 dark:text-gray-400">
+      <span class="font-mono tabular-nums" aria-live="polite">
+        {matchCount > 0 ? `${matchPosition} / ${matchCount}` : 'No matches'}
+      </span>
+      <button
+        type="button"
+        onclick={goToPreviousMatch}
+        disabled={matchCount === 0}
+        title="Previous match (Shift+Enter)"
+        aria-label="Previous matching step"
+        class="rounded px-1.5 py-0.5 font-medium transition-colors {matchCount > 0
+          ? 'hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100'
+          : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
+      >
+        &uarr;
+      </button>
+      <button
+        type="button"
+        onclick={goToNextMatch}
+        disabled={matchCount === 0}
+        title="Next match (Enter)"
+        aria-label="Next matching step"
+        class="rounded px-1.5 py-0.5 font-medium transition-colors {matchCount > 0
+          ? 'hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100'
+          : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
+      >
+        &darr;
+      </button>
+    </div>
+  {/if}
   <select
     bind:value={shared.issueFilter}
     aria-label="Filter by issue"

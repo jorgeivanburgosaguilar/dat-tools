@@ -1,16 +1,18 @@
 <script>
   import { deltaMs, formatDelta, stepSummary } from '$lib/agent-trajectory.js';
+  import { applyHighlight } from '$lib/text-highlight.js';
 
   /**
    * @typedef {Object} TrajectoryStepListProps
    * @property {import('$lib/agent-trajectory.js').TrajectoryStep[]} steps - Full, unfiltered list.
    * @property {number} selectedIndex
    * @property {number[]} visibleIndices - Indices into `steps` that pass the active filters.
+   * @property {string} [query] - Active search query, highlighted wherever it appears below.
    * @property {(index: number) => void} [onselect]
    */
 
   /** @type {TrajectoryStepListProps} */
-  let { steps, selectedIndex, visibleIndices, onselect = () => {} } = $props();
+  let { steps, selectedIndex, visibleIndices, query = '', onselect = () => {} } = $props();
 
   /** @type {HTMLDivElement | null} */
   let listEl = $state(null);
@@ -76,6 +78,14 @@
     listEl
       ?.querySelector(`[data-step-index="${selectedIndex}"]`)
       ?.scrollIntoView({ block: 'nearest' });
+  });
+
+  // Re-wraps matches whenever the rendered rows or the query itself change - either can
+  // independently alter which text nodes need (re)highlighting.
+  $effect(() => {
+    visibleIndices;
+    steps;
+    applyHighlight(listEl, query);
   });
 </script>
 

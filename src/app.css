@@ -194,3 +194,15 @@
 .hljs-strong {
   font-weight: 700;
 }
+
+/* Search-match highlighting inserted by text-highlight.js's DOM walker - not a compiled Tailwind
+   utility since the <mark> elements are created at runtime, outside any Svelte template. */
+mark.trajectory-search-highlight {
+  border-radius: 0.15em;
+  background-color: theme('colors.yellow.300');
+  color: theme('colors.gray.900');
+  @variant dark {
+    background-color: color-mix(in srgb, theme('colors.yellow.500') 60%, transparent);
+    color: theme('colors.gray.100');
+  }
+}
