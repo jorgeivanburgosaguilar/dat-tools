@@ -291,10 +291,12 @@
     placeholder="Search steps..."
     bind:value={shared.query}
     onkeydown={onSearchKeydown}
-    class="w-36 rounded border border-gray-200 bg-white px-2 py-1 text-[1em] text-gray-900 outline-none focus:border-blue-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+    class="w-44 rounded border border-gray-200 bg-white px-2 py-1 text-[1em] text-gray-900 outline-none focus:border-blue-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
   />
   {#if shared.query.trim()}
-    <div class="flex items-center gap-0.5 text-[1em] text-gray-500 dark:text-gray-400">
+    <div
+      class="flex items-center gap-1 text-[1em] whitespace-nowrap text-gray-500 dark:text-gray-400"
+    >
       <span class="font-mono tabular-nums" aria-live="polite">
         {matchCount > 0 ? `${matchPosition} / ${matchCount}` : 'No matches'}
       </span>
@@ -327,7 +329,7 @@
   <select
     bind:value={shared.issueFilter}
     aria-label="Filter by issue"
-    class="rounded border border-gray-200 bg-white px-1.5 py-1 text-[1em] text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
+    class="min-w-[8.5rem] rounded border border-gray-200 bg-white px-1.5 py-1 text-[1em] text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
   >
     <option value="all">All steps</option>
     <option value="issues">Warnings + errors</option>
@@ -337,7 +339,7 @@
   <select
     bind:value={shared.sourceFilter}
     aria-label="Filter by source"
-    class="rounded border border-gray-200 bg-white px-1.5 py-1 text-[1em] text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
+    class="min-w-[7rem] rounded border border-gray-200 bg-white px-1.5 py-1 text-[1em] text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
   >
     <option value="all">All sources</option>
     {#each Object.keys(stats?.bySource ?? {}) as source (source)}
@@ -347,7 +349,7 @@
   <select
     bind:value={shared.toolFilter}
     aria-label="Filter by tool"
-    class="rounded border border-gray-200 bg-white px-1.5 py-1 text-[1em] text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
+    class="min-w-[6.5rem] rounded border border-gray-200 bg-white px-1.5 py-1 text-[1em] text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
   >
     <option value="all">All tools</option>
     {#each stats?.tools ?? [] as tool (tool)}
@@ -359,7 +361,8 @@
     onclick={jumpToNextIssue}
     disabled={issueIndices.length === 0}
     title="Jump to next warning or error step"
-    class="rounded px-2 py-1 text-[1em] font-medium transition-colors {issueIndices.length > 0
+    class="rounded px-2 py-1 text-[1em] font-medium whitespace-nowrap transition-colors {issueIndices.length >
+    0
       ? 'text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/40'
       : 'cursor-not-allowed text-gray-300 dark:text-gray-600'}"
   >
@@ -374,7 +377,7 @@
   {@render searchAndFilters()}
   <button
     onclick={reset}
-    class="rounded px-2 py-1 text-[1em] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+    class="rounded px-2 py-1 text-[1em] font-medium whitespace-nowrap text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
   >
     New JSON
   </button>

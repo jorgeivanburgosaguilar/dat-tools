@@ -9,7 +9,8 @@
  * during SSR/prerendering.
  */
 
-const MARK_CLASS = 'trajectory-search-highlight';
+export const HIGHLIGHT_CLASS = 'trajectory-search-highlight';
+const MARK_CLASS = HIGHLIGHT_CLASS;
 
 /**
  * @param {Element} root

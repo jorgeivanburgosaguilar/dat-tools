@@ -194,7 +194,10 @@
       {@render primary?.()}
     </div>
 
-    <div class="flex items-center gap-1 justify-self-end">
+    <!-- `overflow-x-auto` + `[&>*]:shrink-0` so a wide toolbar (many filters/buttons) scrolls
+         horizontally instead of the browser shrinking each control below its own text's natural
+         width, which otherwise wraps button/label text onto multiple lines mid-word. -->
+    <div class="flex items-center gap-1 justify-self-end overflow-x-auto [&>*]:shrink-0">
       {@render actions?.()}
     </div>
   </div>

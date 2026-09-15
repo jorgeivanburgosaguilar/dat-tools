@@ -4,7 +4,7 @@
   import TrajectoryObservation from './TrajectoryObservation.svelte';
   import MetadataList from './MetadataList.svelte';
   import { guessCodeLanguage } from '$lib/trajectory-content.js';
-  import { applyHighlight } from '$lib/text-highlight.js';
+  import { applyHighlight, HIGHLIGHT_CLASS } from '$lib/text-highlight.js';
 
   /**
    * @typedef {Object} TrajectoryStepDetailProps
@@ -20,9 +20,21 @@
   /** @type {HTMLDivElement | null} */
   let detailRootEl = $state(null);
 
+  // Re-highlights on every step/query change, then brings the *first* match into view - opening
+  // any collapsed `<details>` section it's sitting inside first, since a highlighted keyword
+  // buried in a closed "Raw JSON" section is otherwise invisible. Deliberately narrow: sections
+  // with no match are left exactly as the reader arranged them (see `open`'s own doc comment).
   $effect(() => {
     step;
     applyHighlight(detailRootEl, query);
+    const firstMark = detailRootEl?.querySelector(`.${HIGHLIGHT_CLASS}`);
+    if (!firstMark) return;
+    let ancestor = firstMark.parentElement;
+    while (ancestor && ancestor !== detailRootEl) {
+      if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+      ancestor = ancestor.parentElement;
+    }
+    firstMark.scrollIntoView({ block: 'center' });
   });
 
   let rawJson = $derived(step ? JSON.stringify(step.raw, null, 2) : '');

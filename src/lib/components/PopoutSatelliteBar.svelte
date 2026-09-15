@@ -34,7 +34,7 @@
     {connected ? 'Connected' : 'Main window not found'}
   </span>
   {#if actions}
-    <div class="ml-auto flex items-center gap-1">
+    <div class="ml-auto flex items-center gap-1 overflow-x-auto [&>*]:shrink-0">
       {@render actions()}
     </div>
   {/if}
