@@ -197,10 +197,19 @@
 
 /* Search-match highlighting inserted by text-highlight.js's DOM walker - not a compiled Tailwind
    utility since the <mark> elements are created at runtime, outside any Svelte template. Solid
-   (non-transparent) amber-700 in both themes, rather than a lighter yellow blended over the
-   surrounding background, so it stays bright and legible with white text whether it's sitting on
-   a light-mode card or a near-black dark-mode one. */
-mark.trajectory-search-highlight {
+   (non-transparent) amber-700 with white text in both themes - distinct from the browser's own
+   native find-in-page highlight (yellow/orange), so the two don't look like the same mechanism -
+   and dark enough to read as a deliberate highlight rather than blend into a light-mode card or a
+   near-black dark-mode one.
+
+   Marks inside rendered markdown (TrajectoryRichText, MarkdownRenderedPane) sit under
+   github-markdown-css's `.markdown-body mark` rule, which sets background/color from its own
+   `--bgColor-attention-muted`/`--fgColor-default` vars - equal specificity (0,1,1) to a bare
+   `mark.trajectory-search-highlight`, so it was winning on source order and silently overriding
+   these colors. Qualify with `.markdown-body` too so this rule's specificity (0,2,1) always wins,
+   regardless of stylesheet order. */
+mark.trajectory-search-highlight,
+.markdown-body mark.trajectory-search-highlight {
   border-radius: 0.15em;
   background-color: theme('colors.amber.700');
   color: theme('colors.white');
