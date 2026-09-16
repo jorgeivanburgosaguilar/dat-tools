@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   collectMetadata,
   metricEntries,
-  linkObservations,
   splitObservation,
   noticeLevel,
   detectStepLevel,
@@ -98,96 +97,6 @@ describe('metricEntries', () => {
   it('tolerates metrics that omit cached_tokens', () => {
     const entries = metricEntries({ prompt_tokens: 10, completion_tokens: 2, cost_usd: 0.01 });
     expect(entries.map((e) => e.key)).toEqual(['prompt_tokens', 'completion_tokens', 'cost_usd']);
-  });
-});
-
-describe('linkObservations', () => {
-  it('attaches a result to the tool call whose id matches source_call_id', () => {
-    const toolCalls = [
-      {
-        toolCallId: 'call_1',
-        functionName: 'bash_command',
-        codeArgs: [],
-        metadata: [],
-        observations: []
-      }
-    ];
-    const results = /** @type {import('./agent-trajectory.js').ObservationResult[]} */ ([
-      {
-        sourceCallId: 'call_1',
-        content: 'output',
-        metadata: [],
-        notice: '',
-        marker: null,
-        terminal: 'output',
-        level: 'ok'
-      }
-    ]);
-    const { toolCalls: linked, stepObservations } = linkObservations(toolCalls, results);
-    expect(linked[0].observations).toEqual(results);
-    expect(stepObservations).toEqual([]);
-  });
-
-  it('falls back to stepObservations when source_call_id is absent, for a multi-tool-call step', () => {
-    const toolCalls = [
-      { toolCallId: 'call_1', functionName: 'a', codeArgs: [], metadata: [], observations: [] },
-      { toolCallId: 'call_2', functionName: 'b', codeArgs: [], metadata: [], observations: [] }
-    ];
-    const results = /** @type {import('./agent-trajectory.js').ObservationResult[]} */ ([
-      {
-        sourceCallId: null,
-        content: 'merged output',
-        metadata: [],
-        notice: '',
-        marker: null,
-        terminal: 'merged output',
-        level: 'ok'
-      }
-    ]);
-    const { toolCalls: linked, stepObservations } = linkObservations(toolCalls, results);
-    expect(linked[0].observations).toEqual([]);
-    expect(linked[1].observations).toEqual([]);
-    expect(stepObservations).toEqual(results);
-  });
-
-  it('falls back to stepObservations when source_call_id references an id not present in this step', () => {
-    const toolCalls = [
-      { toolCallId: 'call_1', functionName: 'a', codeArgs: [], metadata: [], observations: [] }
-    ];
-    const results = /** @type {import('./agent-trajectory.js').ObservationResult[]} */ ([
-      {
-        sourceCallId: 'call_unknown',
-        content: 'x',
-        metadata: [],
-        notice: '',
-        marker: null,
-        terminal: 'x',
-        level: 'ok'
-      }
-    ]);
-    const { stepObservations } = linkObservations(toolCalls, results);
-    expect(stepObservations).toEqual(results);
-  });
-
-  it('does not mutate the input tool call objects', () => {
-    const toolCalls = [
-      { toolCallId: 'call_1', functionName: 'a', codeArgs: [], metadata: [], observations: [] }
-    ];
-    linkObservations(
-      toolCalls,
-      /** @type {import('./agent-trajectory.js').ObservationResult[]} */ ([
-        {
-          sourceCallId: 'call_1',
-          content: 'x',
-          metadata: [],
-          notice: '',
-          marker: null,
-          terminal: 'x',
-          level: 'ok'
-        }
-      ])
-    );
-    expect(toolCalls[0].observations).toEqual([]);
   });
 });
 
@@ -296,15 +205,7 @@ describe('detectStepLevel / isTaskCompleteStep', () => {
   it('detects task complete tool call or property', () => {
     expect(
       isTaskCompleteStep(
-        [
-          {
-            toolCallId: '1',
-            functionName: 'mark_task_complete',
-            codeArgs: [],
-            metadata: [],
-            observations: []
-          }
-        ],
+        [{ toolCallId: '1', functionName: 'mark_task_complete', codeArgs: [], metadata: [] }],
         {}
       )
     ).toBe(true);
@@ -510,7 +411,7 @@ describe('normalizeTrajectory', () => {
     ]);
   });
 
-  it('attaches a multi-tool-call step observation with no source_call_id at the step level', () => {
+  it('keeps observation results at the step level regardless of source_call_id, mirroring tool_calls/observation as sibling keys', () => {
     const result = normalizeTrajectory({
       steps: [
         {
@@ -521,17 +422,23 @@ describe('normalizeTrajectory', () => {
             { tool_call_id: 'call_1', function_name: 'a', arguments: {} },
             { tool_call_id: 'call_2', function_name: 'b', arguments: {} }
           ],
-          observation: { results: [{ content: 'merged terminal output' }] }
+          observation: {
+            results: [
+              { content: 'merged terminal output' },
+              { source_call_id: 'call_1', content: 'linked output' }
+            ]
+          }
         }
       ]
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const [step] = result.steps;
-    expect(step.toolCalls[0].observations).toEqual([]);
-    expect(step.toolCalls[1].observations).toEqual([]);
-    expect(step.stepObservations).toHaveLength(1);
+    expect(step.toolCalls[0]).not.toHaveProperty('observations');
+    expect(step.stepObservations).toHaveLength(2);
     expect(step.stepObservations[0].content).toBe('merged terminal output');
+    expect(step.stepObservations[1].content).toBe('linked output');
+    expect(step.stepObservations[1].sourceCallId).toBe('call_1');
   });
 
   it('keeps the original raw step object for the Raw JSON view', () => {

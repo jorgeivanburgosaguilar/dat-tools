@@ -43,7 +43,9 @@
 
 /**
  * @typedef {Object} ObservationResult
- * @property {string | null} sourceCallId
+ * @property {string | null} sourceCallId - The originating tool call's id, shown alongside this
+ *   result in the Observation section for correlation - not used to nest the result inside that
+ *   call's own card (see `TrajectoryStep.stepObservations`).
  * @property {string} content
  * @property {string} notice - Extracted harness or execution notice, if present.
  * @property {string | null} marker - Matched terminal output marker, if present.
@@ -58,7 +60,6 @@
  * @property {string} functionName
  * @property {CodeArgument[]} codeArgs
  * @property {MetadataEntry[]} metadata
- * @property {ObservationResult[]} observations - Results linked to this call by source_call_id.
  */
 
 /**
@@ -84,7 +85,12 @@
  * @property {IssueLevel} level
  * @property {boolean} isTaskComplete
  * @property {ToolCall[]} toolCalls
- * @property {ObservationResult[]} stepObservations - Results with no matching tool call.
+ * @property {ObservationResult[]} stepObservations - Every result under `observation.results`,
+ *   rendered as its own section rather than spliced into `toolCalls` - the raw JSON keeps
+ *   `tool_calls` and `observation` as sibling keys on the step, and the viewer mirrors that instead
+ *   of re-deriving a parent/child relationship from `source_call_id`. That id is kept on each
+ *   result (see `ObservationResult.sourceCallId`) purely for display, so a reader can still tell
+ *   which call produced it.
  * @property {MetadataEntry[]} observationMetadata - Unknown keys on the `observation` object itself.
  * @property {MetricEntry[]} metrics
  * @property {MetadataEntry[]} metadata
@@ -267,7 +273,7 @@ function normalizeToolCall(raw) {
   const functionName = typeof obj.function_name === 'string' ? obj.function_name : 'unknown';
   const { codeArgs, metadata: argMetadata } = splitArguments(obj.arguments);
   const metadata = [...collectMetadata(obj, KNOWN_TOOL_CALL_KEYS), ...argMetadata];
-  return { toolCallId, functionName, codeArgs, metadata, observations: [] };
+  return { toolCallId, functionName, codeArgs, metadata };
 }
 
 /**
@@ -383,31 +389,6 @@ function normalizeObservation(raw) {
 }
 
 /**
- * Attaches each observation result to the tool call whose id matches its `source_call_id`.
- * When a step has several tool calls, the samples show a single merged observation result with
- * no `source_call_id` at all - such results (and any that reference an id not present in this
- * step) fall through to `stepObservations` rather than being dropped.
- * @param {ToolCall[]} toolCalls
- * @param {ObservationResult[]} results
- * @returns {{ toolCalls: ToolCall[], stepObservations: ObservationResult[] }}
- */
-export function linkObservations(toolCalls, results) {
-  const linkedToolCalls = toolCalls.map((tc) => ({
-    ...tc,
-    observations: /** @type {ObservationResult[]} */ ([])
-  }));
-  const byId = new Map(linkedToolCalls.map((tc) => [tc.toolCallId, tc]));
-  /** @type {ObservationResult[]} */
-  const stepObservations = [];
-  for (const result of results) {
-    const target = result.sourceCallId ? byId.get(result.sourceCallId) : undefined;
-    if (target) target.observations.push(result);
-    else stepObservations.push(result);
-  }
-  return { toolCalls: linkedToolCalls, stepObservations };
-}
-
-/**
  * Strips one outer fenced code block (```lang\n...\n```), greedy to the *last* fence so a message
  * whose own content contains nested fences still has just the outer wrapper removed. Returns the
  * input unchanged when there is no outer fence.
@@ -494,9 +475,9 @@ function normalizeStep(raw, index) {
         ? obj.reasoning
         : null;
   const modelName = typeof obj.model_name === 'string' ? obj.model_name : null;
-  const toolCallsRaw = Array.isArray(obj.tool_calls) ? obj.tool_calls.map(normalizeToolCall) : [];
+  const toolCalls = Array.isArray(obj.tool_calls) ? obj.tool_calls.map(normalizeToolCall) : [];
   const observation = normalizeObservation(obj.observation);
-  const { toolCalls, stepObservations } = linkObservations(toolCallsRaw, observation.results);
+  const stepObservations = observation.results;
   // Deliberately not folded into `level`: a malformed message on step N is normally paired with
   // a harness notice on step N+1 reporting the same failure, so counting both here would
   // double-count one problem in `trajectoryStats()`'s error/warning totals. `messageMalformed`
@@ -734,11 +715,6 @@ export function buildSearchIndex(steps) {
       parts.push(tc.functionName);
       for (const arg of tc.codeArgs) parts.push(arg.code);
       for (const entry of tc.metadata) parts.push(entry.value);
-      for (const obs of tc.observations) {
-        if (obs.notice) parts.push(obs.notice);
-        parts.push(obs.terminal || obs.content);
-        for (const entry of obs.metadata) parts.push(entry.value);
-      }
     }
     for (const obs of step.stepObservations) {
       if (obs.notice) parts.push(obs.notice);

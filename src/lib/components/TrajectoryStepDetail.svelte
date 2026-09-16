@@ -107,6 +107,18 @@
       raw: false
     };
   }
+
+  let messageCopied = $state(false);
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let messageCopyTimeout = null;
+
+  async function copyMessage() {
+    if (!step) return;
+    await navigator.clipboard.writeText(step.message);
+    messageCopied = true;
+    if (messageCopyTimeout) clearTimeout(messageCopyTimeout);
+    messageCopyTimeout = setTimeout(() => (messageCopied = false), 1500);
+  }
 </script>
 
 {#if step}
@@ -151,15 +163,28 @@
     {#if currentStep.message}
       <details bind:open={open.message}>
         <summary
-          class="cursor-pointer text-[1em] font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
+          class="flex cursor-pointer items-center justify-between gap-2 text-[1em] font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
         >
-          Message
-          {#if currentStep.messageMalformed}
-            <span
-              class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[0.85em] font-medium tracking-normal text-amber-800 normal-case dark:bg-amber-900/50 dark:text-amber-300"
-              >malformed output</span
-            >
-          {/if}
+          <span>
+            Message
+            {#if currentStep.messageMalformed}
+              <span
+                class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[0.85em] font-medium tracking-normal text-amber-800 normal-case dark:bg-amber-900/50 dark:text-amber-300"
+                >malformed output</span
+              >
+            {/if}
+          </span>
+          <button
+            type="button"
+            onclick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              copyMessage();
+            }}
+            class="rounded px-2 py-0.5 text-[0.85em] font-medium tracking-normal text-gray-500 normal-case hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+          >
+            {messageCopied ? '✓ Copied' : 'Copy'}
+          </button>
         </summary>
         <div
           data-testid="step-message"
@@ -210,8 +235,10 @@
         </summary>
         <div class="mt-2 space-y-3">
           {#each currentStep.toolCalls as toolCall, ti (toolCall.toolCallId ?? ti)}
-            <div class="space-y-2 rounded border border-gray-200 p-2 dark:border-gray-700">
-              <div class="flex flex-wrap items-center gap-2 text-[1em]">
+            <div class="overflow-hidden rounded border border-gray-200 dark:border-gray-700">
+              <div
+                class="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-3 py-1.5 text-[1em] dark:border-gray-700 dark:bg-gray-800"
+              >
                 <span class="font-mono font-semibold text-gray-900 dark:text-gray-100"
                   >{toolCall.functionName}</span
                 >
@@ -221,18 +248,17 @@
                   >
                 {/if}
               </div>
-              {#each toolCall.codeArgs as arg (arg.label)}
-                <TrajectoryCodeBlock
-                  label={arg.label}
-                  code={arg.code}
-                  language={guessCodeLanguage(arg.code, 'bash', lowlight)}
-                  {lowlight}
-                />
-              {/each}
-              <MetadataList entries={toolCall.metadata} title="Arguments" />
-              {#each toolCall.observations as obs, oi (obs.sourceCallId ?? oi)}
-                <TrajectoryObservation observation={obs} {lowlight} />
-              {/each}
+              <div class="space-y-2 bg-white p-2 dark:bg-gray-900">
+                {#each toolCall.codeArgs as arg (arg.label)}
+                  <TrajectoryCodeBlock
+                    label={arg.label}
+                    code={arg.code}
+                    language={guessCodeLanguage(arg.code, 'bash', lowlight)}
+                    {lowlight}
+                  />
+                {/each}
+                <MetadataList entries={toolCall.metadata} title="Arguments" />
+              </div>
             </div>
           {/each}
         </div>
@@ -285,7 +311,7 @@
       >
         Raw JSON
       </summary>
-      <div class="mt-2">
+      <div data-testid="step-raw-json" class="mt-2">
         <TrajectoryCodeBlock label="step.json" code={rawJson} language="json" {lowlight} />
       </div>
     </details>

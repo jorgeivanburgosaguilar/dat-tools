@@ -32,6 +32,11 @@
   }
 </script>
 
+{#if observation.sourceCallId}
+  <div class="font-mono text-[0.9em] text-gray-400 dark:text-gray-500">
+    &rarr; {observation.sourceCallId}
+  </div>
+{/if}
 {#if observation.notice}
   <div
     data-testid="observation-notice"

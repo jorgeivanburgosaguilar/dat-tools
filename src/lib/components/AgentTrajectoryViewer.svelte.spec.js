@@ -257,10 +257,12 @@ describe('AgentTrajectoryViewer', () => {
     await loadExample(screen);
 
     await screen.getByText('Raw JSON').click();
-    const copyButton = screen.getByRole('button', { name: 'Copy' });
+    const copyButton = screen.getByTestId('step-raw-json').getByRole('button', { name: 'Copy' });
     await expect.element(copyButton).toBeVisible();
     await copyButton.click();
-    await expect.element(screen.getByRole('button', { name: '✓ Copied' })).toBeVisible();
+    await expect
+      .element(screen.getByTestId('step-raw-json').getByRole('button', { name: '✓ Copied' }))
+      .toBeVisible();
     await screen.unmount();
   });
 
