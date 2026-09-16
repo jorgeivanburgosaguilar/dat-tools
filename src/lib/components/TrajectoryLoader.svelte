@@ -2,6 +2,7 @@
   import { parseJson } from '$lib/json-parser.js';
   import { normalizeTrajectory, EXAMPLE_TRAJECTORY } from '$lib/agent-trajectory.js';
   import { ensureHighlighter } from '$lib/syntax-highlight.js';
+  import HtmlToolCallsImportModal from '$lib/components/HtmlToolCallsImportModal.svelte';
 
   /**
    * @typedef {Object} TrajectoryLoaderProps
@@ -15,6 +16,7 @@
   let error = $state(/** @type {string | null} */ (null));
   let loading = $state(false);
   let dragActive = $state(false);
+  let showHtmlImport = $state(false);
 
   /** @type {HTMLInputElement | null} */
   let fileInputEl = $state(null);
@@ -41,7 +43,7 @@
     loading = true;
     try {
       const lowlight = await ensureHighlighter();
-      onload({ trajectory: normalized, lowlight });
+      onload({ trajectory: normalized, lowlight, json: parsed.formatted });
     } finally {
       loading = false;
     }
@@ -54,6 +56,13 @@
   function loadExample() {
     text = EXAMPLE_TRAJECTORY;
     load(EXAMPLE_TRAJECTORY);
+  }
+
+  /** @param {string} json */
+  function importHtml(json) {
+    showHtmlImport = false;
+    text = json;
+    load(json);
   }
 
   /** @param {File} file */
@@ -92,8 +101,8 @@
       Load a trajectory
     </h2>
     <p class="mt-1 text-[1.125em] text-gray-500 dark:text-gray-400">
-      Drop a trajectory JSON file, paste it below, or try the bundled example. Everything stays in
-      your browser.
+      Drop a trajectory JSON file, paste it below, try the bundled example, or import an exported
+      HTML tool-call transcript. Everything stays in your browser.
     </p>
   </div>
 
@@ -164,5 +173,18 @@
     >
       Load example
     </button>
+    <button
+      onclick={() => (showHtmlImport = true)}
+      disabled={loading}
+      class="rounded-md border border-gray-200 px-4 py-1.5 text-[1em] font-semibold text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+    >
+      Import HTML Tool Calls
+    </button>
   </div>
 </div>
+
+<HtmlToolCallsImportModal
+  open={showHtmlImport}
+  onimport={importHtml}
+  onclose={() => (showHtmlImport = false)}
+/>

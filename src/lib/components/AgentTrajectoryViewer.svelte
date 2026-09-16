@@ -51,6 +51,13 @@
   let lowlight = $state(null);
   let highlightLoading = $state(false);
 
+  // The exact JSON that produced `shared.trajectory`, for "Download JSON" - owner-only local UI
+  // state, same reasoning as `lowlight`: it's not part of the pop-out sync contract because the
+  // download button only ever renders in the owner window's own `actions()` snippet, never in a
+  // satellite (see `PopoutSatelliteBar`'s `actions` prop below, which passes `searchAndFilters`
+  // only, not the full `actions()` snippet).
+  let loadedJson = $state('');
+
   /** @type {HTMLInputElement | null} */
   let searchInputEl = $state(null);
 
@@ -275,6 +282,7 @@
   function handleLoad(result) {
     shared.trajectory = result.trajectory;
     lowlight = result.lowlight;
+    loadedJson = result.json;
     shared.selectedIndex = 0;
     shared.query = '';
     shared.sourceFilter = 'all';
@@ -286,6 +294,23 @@
     shared.trajectory = null;
     shared.selectedIndex = 0;
     lowlight = null;
+    loadedJson = '';
+  }
+
+  // Saves exactly what's currently loaded, not a re-serialization of the normalized/derived
+  // `Trajectory` (which would drop unknown fields folded into `metadata` and reorder keys) - so a
+  // trajectory produced by "Import HTML Tool Calls" can be downloaded once and reloaded later
+  // without re-pasting or re-converting the original HTML.
+  function downloadJson() {
+    if (!loadedJson) return;
+    const sessionId = shared.trajectory?.sessionId?.replace(/[^\w.-]+/g, '-');
+    const filename = sessionId ? `trajectory-${sessionId}.json` : 'trajectory.json';
+    const url = URL.createObjectURL(new Blob([loadedJson], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 </script>
 
@@ -420,6 +445,12 @@
     <span class="text-[1em] text-red-500 dark:text-red-400">Pop-up blocked by the browser</span>
   {/if}
   {@render searchAndFilters()}
+  <button
+    onclick={downloadJson}
+    class="rounded px-2 py-1 text-[1em] font-medium whitespace-nowrap text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+  >
+    Download JSON
+  </button>
   <button
     onclick={reset}
     class="rounded px-2 py-1 text-[1em] font-medium whitespace-nowrap text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"

@@ -45,6 +45,42 @@ describe('AgentTrajectoryViewer', () => {
     await screen.unmount();
   });
 
+  it('downloads the currently loaded trajectory as JSON', async () => {
+    const screen = await render(AgentTrajectoryViewer);
+    await loadExample(screen);
+
+    /** @type {Blob | undefined} */
+    let capturedBlob;
+    /** @type {string | undefined} */
+    let downloadedFilename;
+    const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      capturedBlob = /** @type {Blob} */ (blob);
+      return 'blob:mock-url';
+    });
+    const revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    /** @this {HTMLAnchorElement} */
+    function captureDownloadFilename() {
+      downloadedFilename = this.download;
+    }
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(captureDownloadFilename);
+
+    await screen.getByRole('button', { name: 'Download JSON' }).click();
+
+    expect(createObjectURLSpy).toHaveBeenCalledTimes(1);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(downloadedFilename).toBe('trajectory-example-4f2c-4b7a-9e1d-000000000000.json');
+    expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:mock-url');
+
+    const text = await /** @type {Blob} */ (capturedBlob).text();
+    const parsed = JSON.parse(text);
+    expect(parsed.session_id).toBe('example-4f2c-4b7a-9e1d-000000000000');
+    expect(parsed.steps).toHaveLength(6);
+
+    await screen.unmount();
+  });
+
   it('shows an invalid JSON error and stays on the loader', async () => {
     const screen = await render(AgentTrajectoryViewer);
     await screen.getByLabelText('Paste trajectory JSON').fill('{ not valid json');
@@ -52,6 +88,100 @@ describe('AgentTrajectoryViewer', () => {
     await expect.element(screen.getByRole('alert')).toBeVisible();
     await expect.element(screen.getByRole('button', { name: 'Load example' })).toBeVisible();
     expect(screen.container.querySelectorAll('[data-step-index]').length).toBe(0);
+    await screen.unmount();
+  });
+
+  it('imports an HTML tool-call transcript via the modal and loads it', async () => {
+    const screen = await render(AgentTrajectoryViewer);
+
+    await screen.getByRole('button', { name: 'Import HTML Tool Calls' }).click();
+    const dialog = screen.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Load example' }).click();
+    await expect.element(screen.getByText(/steps · \d+ tool calls · \d+ results/)).toBeVisible();
+    await dialog.getByRole('button', { name: 'Import' }).click();
+
+    await expect.poll(() => screen.container.querySelectorAll('[data-step-index]').length).toBe(4);
+    await expect.element(screen.getByRole('button', { name: 'New JSON' })).toBeVisible();
+    await screen.unmount();
+  });
+
+  it('loads a picked HTML file into the import modal and imports it', async () => {
+    const screen = await render(AgentTrajectoryViewer);
+
+    await screen.getByRole('button', { name: 'Import HTML Tool Calls' }).click();
+    const dialog = screen.getByRole('dialog');
+
+    const html =
+      '<details class="seg assistant" id="seg-0"><div class="body"><p>from a file</p></div></details>';
+    const file = new File([html], 'transcript.html', { type: 'text/html' });
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    const input = /** @type {HTMLInputElement} */ (
+      screen.container.querySelector('input[type="file"][accept*="html"]')
+    );
+    input.files = dataTransfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    await expect.element(screen.getByText(/1 steps · 0 tool calls · 0 results/)).toBeVisible();
+    await dialog.getByRole('button', { name: 'Import' }).click();
+
+    await expect.poll(() => screen.container.querySelectorAll('[data-step-index]').length).toBe(1);
+    await screen.unmount();
+  });
+
+  it('downloads an HTML-imported trajectory and reloads it later via New JSON', async () => {
+    const screen = await render(AgentTrajectoryViewer);
+
+    await screen.getByRole('button', { name: 'Import HTML Tool Calls' }).click();
+    const dialog = screen.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Load example' }).click();
+    await dialog.getByRole('button', { name: 'Import' }).click();
+    await expect.poll(() => screen.container.querySelectorAll('[data-step-index]').length).toBe(4);
+
+    /** @type {Blob | undefined} */
+    let capturedBlob;
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+      capturedBlob = /** @type {Blob} */ (blob);
+      return 'blob:mock-url';
+    });
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    await screen.getByRole('button', { name: 'Download JSON' }).click();
+    const downloadedJson = await /** @type {Blob} */ (capturedBlob).text();
+
+    await screen.getByRole('button', { name: 'New JSON' }).click();
+    await expect.element(screen.getByRole('button', { name: 'Load example' })).toBeVisible();
+
+    await screen.getByLabelText('Paste trajectory JSON').fill(downloadedJson);
+    await screen.getByRole('button', { name: 'Load trajectory' }).click();
+
+    await expect.poll(() => screen.container.querySelectorAll('[data-step-index]').length).toBe(4);
+    await screen.unmount();
+  });
+
+  it('shows an error in the modal and stays on the loader for HTML with no segments', async () => {
+    const screen = await render(AgentTrajectoryViewer);
+
+    await screen.getByRole('button', { name: 'Import HTML Tool Calls' }).click();
+    await screen.getByPlaceholder(/seg tool_call/).fill('<p>no transcript segments here</p>');
+    await expect.element(screen.getByText(/No transcript segments found/)).toBeVisible();
+    await expect.element(screen.getByRole('button', { name: 'Import' })).toBeDisabled();
+
+    await screen.unmount();
+  });
+
+  it('leaves the paste textarea untouched when the import modal is cancelled', async () => {
+    const screen = await render(AgentTrajectoryViewer);
+
+    await screen.getByLabelText('Paste trajectory JSON').fill('{"steps":[]}');
+    await screen.getByRole('button', { name: 'Import HTML Tool Calls' }).click();
+    await screen.getByPlaceholder(/seg tool_call/).fill('<p>draft, not submitted</p>');
+    await screen.getByRole('button', { name: 'Cancel' }).click();
+
+    await expect
+      .element(screen.getByLabelText('Paste trajectory JSON'))
+      .toHaveValue('{"steps":[]}');
     await screen.unmount();
   });
 
