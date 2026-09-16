@@ -16,6 +16,7 @@ import {
   trajectoryStats,
   buildSearchIndex,
   filterSteps,
+  countOccurrences,
   EXAMPLE_TRAJECTORY
 } from './agent-trajectory.js';
 
@@ -720,10 +721,13 @@ describe('buildSearchIndex / filterSteps', () => {
       {
         step_id: 3,
         source: 'agent',
+        timestamp: '2026-03-14T09:30:00.000000+00:00',
         message: 'All done, marking complete',
         observation: {
           results: [{ content: 'Previous response had parsing errors: parse failure' }]
-        }
+        },
+        metrics: { prompt_tokens: 2470, cost_usd: 0.00041 },
+        sandbox_id: 'demo-sandbox-42'
       },
       {
         step_id: 4,
@@ -783,6 +787,45 @@ describe('buildSearchIndex / filterSteps', () => {
     if (!trajectory.ok) return;
     const index = buildSearchIndex(trajectory.steps);
     expect(filterSteps(trajectory.steps, index, { query: 'wobblesnort' })).toEqual([3]);
+  });
+
+  it('finds a step by a substring of its ISO timestamp', () => {
+    expect(trajectory.ok).toBe(true);
+    if (!trajectory.ok) return;
+    const index = buildSearchIndex(trajectory.steps);
+    expect(filterSteps(trajectory.steps, index, { query: '09:30:00' })).toEqual([2]);
+  });
+
+  it('finds a step by a raw metric value even though its display is formatted differently', () => {
+    expect(trajectory.ok).toBe(true);
+    if (!trajectory.ok) return;
+    const index = buildSearchIndex(trajectory.steps);
+    // 2470 is `toLocaleString`'d to "2,470" in `metric.display` - the raw value must still match.
+    expect(filterSteps(trajectory.steps, index, { query: '2470' })).toEqual([2]);
+    expect(filterSteps(trajectory.steps, index, { query: '$0.00041' })).toEqual([2]);
+  });
+
+  it('finds a step by a generic (schema-drift) metadata value', () => {
+    expect(trajectory.ok).toBe(true);
+    if (!trajectory.ok) return;
+    const index = buildSearchIndex(trajectory.steps);
+    expect(filterSteps(trajectory.steps, index, { query: 'demo-sandbox-42' })).toEqual([2]);
+  });
+});
+
+describe('countOccurrences', () => {
+  it('counts every non-overlapping occurrence', () => {
+    expect(countOccurrences('the cat sat with the cat', 'cat')).toBe(2);
+  });
+
+  it('returns 0 for no match, an empty haystack, or a blank needle', () => {
+    expect(countOccurrences('nothing here', 'zzz')).toBe(0);
+    expect(countOccurrences('', 'x')).toBe(0);
+    expect(countOccurrences('some text', '')).toBe(0);
+  });
+
+  it('does not double-count overlapping occurrences', () => {
+    expect(countOccurrences('aaaa', 'aa')).toBe(2);
   });
 });
 

@@ -196,13 +196,12 @@
 }
 
 /* Search-match highlighting inserted by text-highlight.js's DOM walker - not a compiled Tailwind
-   utility since the <mark> elements are created at runtime, outside any Svelte template. */
+   utility since the <mark> elements are created at runtime, outside any Svelte template. Solid
+   (non-transparent) amber-700 in both themes, rather than a lighter yellow blended over the
+   surrounding background, so it stays bright and legible with white text whether it's sitting on
+   a light-mode card or a near-black dark-mode one. */
 mark.trajectory-search-highlight {
   border-radius: 0.15em;
-  background-color: theme('colors.yellow.300');
-  color: theme('colors.gray.900');
-  @variant dark {
-    background-color: color-mix(in srgb, theme('colors.yellow.500') 60%, transparent);
-    color: theme('colors.gray.100');
-  }
+  background-color: theme('colors.amber.700');
+  color: theme('colors.white');
 }

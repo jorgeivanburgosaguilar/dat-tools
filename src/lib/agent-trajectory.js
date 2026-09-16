@@ -707,31 +707,67 @@ export function trajectoryStats(trajectory) {
 
 /**
  * Builds one lowercased search haystack per step (message, fields recovered from a structured
- * message, reasoning, tool call code arguments, and observation content / notices), computed once
- * per load so filtering ~100 steps on every keystroke is a cheap substring scan rather than a
- * re-walk of the whole tree.
+ * message, reasoning, timestamp, metrics, generic metadata at every level, tool call code
+ * arguments/metadata, and observation content / notices / metadata), computed once per load so
+ * filtering ~100 steps on every keystroke is a cheap substring scan rather than a re-walk of the
+ * whole tree. A query matches regardless of whether it or the underlying value reads as a number,
+ * text, or a timestamp - everything here is folded into plain strings before searching, so e.g.
+ * a numeric query still matches inside prose and a text query still matches inside a metric or an
+ * ISO timestamp. Numeric metrics push both their formatted `display` (e.g. `"$0.00041"`) and their
+ * raw value (e.g. `"812"`) so a search isn't foiled by locale formatting (`toLocaleString`'s
+ * thousands separators). Deliberately never includes `step.raw` (the Raw JSON view) - it's a full
+ * re-serialization of the same step, so folding it in would only double-count matches already
+ * covered by the fields above.
  * @param {TrajectoryStep[]} steps
  * @returns {string[]}
  */
 export function buildSearchIndex(steps) {
   return steps.map((step) => {
     const parts = [step.message];
+    if (step.timestamp) parts.push(step.timestamp);
     for (const field of step.messageFields) parts.push(field.value);
     if (step.reasoningContent) parts.push(step.reasoningContent);
+    for (const metric of step.metrics) parts.push(metric.display, String(metric.value));
+    for (const entry of step.metadata) parts.push(entry.value);
+    for (const entry of step.observationMetadata) parts.push(entry.value);
     for (const tc of step.toolCalls) {
       parts.push(tc.functionName);
       for (const arg of tc.codeArgs) parts.push(arg.code);
+      for (const entry of tc.metadata) parts.push(entry.value);
       for (const obs of tc.observations) {
         if (obs.notice) parts.push(obs.notice);
         parts.push(obs.terminal || obs.content);
+        for (const entry of obs.metadata) parts.push(entry.value);
       }
     }
     for (const obs of step.stepObservations) {
       if (obs.notice) parts.push(obs.notice);
       parts.push(obs.terminal || obs.content);
+      for (const entry of obs.metadata) parts.push(entry.value);
     }
     return parts.join('\n').toLowerCase();
   });
+}
+
+/**
+ * Counts non-overlapping occurrences of `needle` in `haystack` - both expected pre-lowercased by
+ * the caller, matching `buildSearchIndex()`'s per-step haystacks. Used to page through individual
+ * search matches (not just matching steps): `haystack` never includes a step's Raw JSON view (see
+ * `buildSearchIndex()`'s doc comment), so a keyword that only appears there - a duplicate of
+ * content already counted elsewhere in the step - is never double-counted.
+ * @param {string} haystack
+ * @param {string} needle
+ * @returns {number}
+ */
+export function countOccurrences(haystack, needle) {
+  if (!needle) return 0;
+  let count = 0;
+  let idx = haystack.indexOf(needle);
+  while (idx !== -1) {
+    count++;
+    idx = haystack.indexOf(needle, idx + needle.length);
+  }
+  return count;
 }
 
 /**

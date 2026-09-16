@@ -59,4 +59,35 @@ describe('text-highlight', () => {
     expect(() => applyHighlight(null, 'x')).not.toThrow();
     expect(() => applyHighlight(undefined, 'x')).not.toThrow();
   });
+
+  it('finds a match split across sibling elements by a syntax highlighter (same block)', () => {
+    // Mirrors TrajectoryCodeBlock.svelte's per-line markup: a bash tokenizer commonly puts the
+    // command and its flag in separate <span> runs, so "ls -la" never appears whole in any single
+    // text node - only in their shared line <div>'s concatenated text.
+    const root = mount('<div><span>ls</span> <span class="hljs-flag">-la</span></div>');
+    applyHighlight(root, 'ls -la');
+    const marks = root.querySelectorAll('mark.trajectory-search-highlight');
+    // One <mark> per DOM text node the match touches: "ls", the space between the two <span>s,
+    // and "-la" - all three sharing one `data-match` index (see assertion below).
+    expect(marks).toHaveLength(3);
+    expect(Array.from(marks, (m) => m.textContent).join('')).toBe('ls -la');
+    const matchIds = new Set(Array.from(marks, (m) => m.getAttribute('data-match')));
+    expect(matchIds.size).toBe(1);
+    expect(root.textContent).toBe('ls -la');
+  });
+
+  it('does not merge text across separate block-level elements', () => {
+    const root = mount('<p>end of para one</p><p>start of para two</p>');
+    applyHighlight(root, 'one start');
+    expect(root.querySelectorAll('mark.trajectory-search-highlight')).toHaveLength(0);
+  });
+
+  it('assigns increasing data-match indices across multiple blocks in document order', () => {
+    const root = mount('<p>alpha keyword</p><p>keyword beta</p>');
+    applyHighlight(root, 'keyword');
+    const marks = root.querySelectorAll('mark.trajectory-search-highlight');
+    expect(marks).toHaveLength(2);
+    expect(marks[0].getAttribute('data-match')).toBe('0');
+    expect(marks[1].getAttribute('data-match')).toBe('1');
+  });
 });

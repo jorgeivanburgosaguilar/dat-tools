@@ -11,30 +11,61 @@
    * @property {import('$lib/agent-trajectory.js').TrajectoryStep | null} step
    * @property {import('$lib/syntax-highlight.js').Lowlight | null} [lowlight]
    * @property {string} [query] - Active search query, highlighted wherever it appears below
-   *   (including inside collapsed `<details>` sections, so it's already marked once expanded).
+   *   (including inside collapsed `<details>` sections, so it's already marked once expanded, and
+   *   inside the "Raw JSON" section - see `matchOffset`'s doc comment on why that one is excluded
+   *   from navigation despite being highlighted).
+   * @property {number} [matchOffset] - Which occurrence of `query` (0-based, in document order) to
+   *   bring into view - the unit AgentTrajectoryViewer.svelte's Next/Prev controls page through.
    */
 
   /** @type {TrajectoryStepDetailProps} */
-  let { step, lowlight = null, query = '' } = $props();
+  let { step, lowlight = null, query = '', matchOffset = 0 } = $props();
 
   /** @type {HTMLDivElement | null} */
   let detailRootEl = $state(null);
 
-  // Re-highlights on every step/query change, then brings the *first* match into view - opening
-  // any collapsed `<details>` section it's sitting inside first, since a highlighted keyword
-  // buried in a closed "Raw JSON" section is otherwise invisible. Deliberately narrow: sections
-  // with no match are left exactly as the reader arranged them (see `open`'s own doc comment).
+  // Re-highlights on every step/query/offset change, then brings the occurrence at `matchOffset`
+  // into view - opening any collapsed `<details>` section it's sitting inside first, since a
+  // highlighted keyword buried in a closed section is otherwise invisible. Deliberately narrow:
+  // sections with no match are left exactly as the reader arranged them (see `open`'s own doc
+  // comment).
+  //
+  // The Raw JSON section (marked `data-search-scope="raw"` below) is excluded from the candidate
+  // list even though `applyHighlight` highlights matches inside it same as everywhere else - it's
+  // a full re-serialization of this same step, so every match there is a duplicate of one already
+  // reachable elsewhere in this view, and `matchOffset` (computed from `countOccurrences()` over
+  // the non-raw search haystack - see agent-trajectory.js's `buildSearchIndex()`) never counts it.
   $effect(() => {
     step;
     applyHighlight(detailRootEl, query);
-    const firstMark = detailRootEl?.querySelector(`.${HIGHLIGHT_CLASS}`);
-    if (!firstMark) return;
-    let ancestor = firstMark.parentElement;
+    if (!detailRootEl) return;
+    const marks = detailRootEl.querySelectorAll(`.${HIGHLIGHT_CLASS}`);
+    // A single logical occurrence can produce more than one `<mark>` (see `applyHighlight`'s doc
+    // comment - a match spanning a node boundary, e.g. a syntax-highlighted token split, gets one
+    // `<mark>` per node all sharing a `data-match` index). Collapse those back down to one entry
+    // per occurrence so `matchOffset` - a count of *occurrences*, from `countOccurrences()` over
+    // the DOM-independent search haystack - still indexes correctly.
+    /** @type {Record<string, true>} */
+    const seenMatches = {};
+    /** @type {Element[]} */
+    const navigable = [];
+    for (const mark of marks) {
+      if (mark.closest('[data-search-scope="raw"]')) continue;
+      const matchId = mark.getAttribute('data-match');
+      if (matchId !== null) {
+        if (seenMatches[matchId]) continue;
+        seenMatches[matchId] = true;
+      }
+      navigable.push(mark);
+    }
+    const target = navigable[Math.min(Math.max(matchOffset, 0), navigable.length - 1)];
+    if (!target) return;
+    let ancestor = target.parentElement;
     while (ancestor && ancestor !== detailRootEl) {
       if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
       ancestor = ancestor.parentElement;
     }
-    firstMark.scrollIntoView({ block: 'center' });
+    target.scrollIntoView({ block: 'center' });
   });
 
   let rawJson = $derived(step ? JSON.stringify(step.raw, null, 2) : '');
@@ -248,7 +279,7 @@
       <MetadataList entries={currentStep.metadata} title="Metadata" />
     </div>
 
-    <details bind:open={open.raw}>
+    <details bind:open={open.raw} data-search-scope="raw">
       <summary
         class="cursor-pointer text-[1em] font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
       >

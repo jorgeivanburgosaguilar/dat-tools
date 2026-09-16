@@ -6,7 +6,12 @@
   import TrajectoryStepDetail from './TrajectoryStepDetail.svelte';
   import PopoutSatelliteBar from './PopoutSatelliteBar.svelte';
   import { createPopoutSync } from '$lib/popout-sync.js';
-  import { trajectoryStats, buildSearchIndex, filterSteps } from '$lib/agent-trajectory.js';
+  import {
+    trajectoryStats,
+    buildSearchIndex,
+    filterSteps,
+    countOccurrences
+  } from '$lib/agent-trajectory.js';
   import { ensureHighlighter } from '$lib/syntax-highlight.js';
 
   const TOOL = 'agent-trajectory-viewer';
@@ -184,35 +189,67 @@
     const current = effectiveSelectedIndex;
     const next = issueIndices.find((idx) => idx > current);
     shared.selectedIndex = next !== undefined ? next : issueIndices[0];
+    matchOffsetInStep = 0;
   }
 
-  // "Findings" are the currently-matching steps (`visibleIndices`, which already folds in the
-  // active query together with the source/tool/issue filters) - the same unit the status line's
-  // "Showing X of Y steps" already counts by. Matching at the step level, rather than every raw
-  // text occurrence, means the counter and prev/next controls stay meaningful even while a match
-  // is sitting inside a collapsed `<details>` section in the detail pane.
-  let matchCount = $derived(shared.query.trim() ? visibleIndices.length : 0);
+  // "Findings" are individual keyword occurrences, not just matching steps - a step with the
+  // query showing up 3 times counts as 3 findings. Counted from `searchIndex`, the same haystack
+  // `filterSteps()` already searches, which deliberately excludes a step's Raw JSON view (see
+  // `buildSearchIndex()`'s doc comment) since it's a full re-serialization of the step and would
+  // otherwise double-count every match. Raw JSON still gets highlighted when expanded (`applyHighlight`
+  // in TrajectoryStepDetail.svelte covers the whole rendered step), it's just never a place Next/Prev
+  // stops - see that component's own doc comment on `data-search-scope="raw"`.
+  let stepMatchCounts = $derived.by(() => {
+    const q = shared.query.trim().toLowerCase();
+    if (!q) return [];
+    return visibleIndices.map((idx) => countOccurrences(searchIndex[idx] ?? '', q));
+  });
+  let matchCount = $derived(stepMatchCounts.reduce((a, b) => a + b, 0));
+
+  // Which occurrence *within the currently-selected step* is focused. Reset to 0 by every state
+  // change that isn't Next/Prev itself (a fresh query, a manually-picked step, "Next issue") - see
+  // the effect below and the `onselect`/`jumpToNextIssue` call sites - so those always land on
+  // that step's first match rather than some stale offset left over from earlier navigation.
+  let matchOffsetInStep = $state(0);
+
+  $effect(() => {
+    shared.query;
+    matchOffsetInStep = 0;
+  });
+
   let matchPosition = $derived.by(() => {
     if (matchCount === 0) return 0;
     const pos = visibleIndices.indexOf(effectiveSelectedIndex);
-    return pos === -1 ? 0 : pos + 1;
+    if (pos === -1) return 0;
+    const before = stepMatchCounts.slice(0, pos).reduce((a, b) => a + b, 0);
+    const clampedOffset = Math.min(matchOffsetInStep, Math.max(stepMatchCounts[pos] - 1, 0));
+    return before + clampedOffset + 1;
   });
 
-  /** @param {number} offset */
-  function stepToMatch(offset) {
-    if (visibleIndices.length === 0) return;
+  function goToNextMatch() {
+    if (matchCount === 0) return;
     const pos = visibleIndices.indexOf(effectiveSelectedIndex);
-    const base = pos === -1 ? 0 : pos;
-    const next = (base + offset + visibleIndices.length) % visibleIndices.length;
+    const current = pos === -1 ? 0 : pos;
+    if (matchOffsetInStep + 1 < stepMatchCounts[current]) {
+      matchOffsetInStep += 1;
+      return;
+    }
+    const next = (current + 1) % visibleIndices.length;
+    matchOffsetInStep = 0;
     shared.selectedIndex = visibleIndices[next];
   }
 
-  function goToNextMatch() {
-    stepToMatch(1);
-  }
-
   function goToPreviousMatch() {
-    stepToMatch(-1);
+    if (matchCount === 0) return;
+    const pos = visibleIndices.indexOf(effectiveSelectedIndex);
+    const current = pos === -1 ? 0 : pos;
+    if (matchOffsetInStep > 0) {
+      matchOffsetInStep -= 1;
+      return;
+    }
+    const prev = (current - 1 + visibleIndices.length) % visibleIndices.length;
+    matchOffsetInStep = Math.max(stepMatchCounts[prev] - 1, 0);
+    shared.selectedIndex = visibleIndices[prev];
   }
 
   /** @param {KeyboardEvent} e */
@@ -267,7 +304,10 @@
       selectedIndex={effectiveSelectedIndex}
       {visibleIndices}
       query={shared.query}
-      onselect={(i) => (shared.selectedIndex = i)}
+      onselect={(i) => {
+        shared.selectedIndex = i;
+        matchOffsetInStep = 0;
+      }}
     />
   </div>
 {/snippet}
@@ -280,7 +320,12 @@
         >Step Detail</span
       >
     </div>
-    <TrajectoryStepDetail step={selectedStep} {lowlight} query={shared.query} />
+    <TrajectoryStepDetail
+      step={selectedStep}
+      {lowlight}
+      query={shared.query}
+      matchOffset={matchOffsetInStep}
+    />
   </div>
 {/snippet}
 
