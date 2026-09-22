@@ -4,7 +4,7 @@
   import TrajectoryObservation from './TrajectoryObservation.svelte';
   import MetadataList from './MetadataList.svelte';
   import { guessCodeLanguage } from '$lib/trajectory-content.js';
-  import { applyHighlight, HIGHLIGHT_CLASS } from '$lib/text-highlight.js';
+  import { applyHighlight, clearHighlight, HIGHLIGHT_CLASS } from '$lib/text-highlight.js';
 
   /**
    * @typedef {Object} TrajectoryStepDetailProps
@@ -23,6 +23,20 @@
 
   /** @type {HTMLDivElement | null} */
   let detailRootEl = $state(null);
+
+  // Clears any highlight marks from the *previous* render before Svelte patches the DOM for the
+  // new step/query/offset. Marks are `<mark>` elements wrapped around text nodes Svelte itself
+  // owns and updates directly (plain text bindings, `{#if}`/`{@html}` block anchors, ...) - if a
+  // structural update ran while one of those nodes was still detached inside a mark, Svelte would
+  // silently keep writing to a node no longer in the document (see `clearHighlight()`'s doc
+  // comment). Running this in `$effect.pre` guarantees Svelte's own updates always see the
+  // original, unwrapped nodes first.
+  $effect.pre(() => {
+    step;
+    query;
+    matchOffset;
+    clearHighlight(detailRootEl);
+  });
 
   // Re-highlights on every step/query/offset change, then brings the occurrence at `matchOffset`
   // into view - opening any collapsed `<details>` section it's sitting inside first, since a

@@ -1,6 +1,6 @@
 <script>
   import { deltaMs, formatDelta, stepSummary } from '$lib/agent-trajectory.js';
-  import { applyHighlight } from '$lib/text-highlight.js';
+  import { applyHighlight, clearHighlight } from '$lib/text-highlight.js';
 
   /**
    * @typedef {Object} TrajectoryStepListProps
@@ -78,6 +78,16 @@
     listEl
       ?.querySelector(`[data-step-index="${selectedIndex}"]`)
       ?.scrollIntoView({ block: 'nearest' });
+  });
+
+  // Clears any highlight marks from the previous render before Svelte patches the DOM for the new
+  // rows/query - see TrajectoryStepDetail.svelte's identical effect for why this must run in
+  // `$effect.pre`, ahead of any structural update to the keyed `{#each}` below.
+  $effect.pre(() => {
+    visibleIndices;
+    steps;
+    query;
+    clearHighlight(listEl);
   });
 
   // Re-wraps matches whenever the rendered rows or the query itself change - either can

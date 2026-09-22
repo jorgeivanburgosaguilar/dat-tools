@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { applyHighlight } from './text-highlight.js';
+import { applyHighlight, clearHighlight } from './text-highlight.js';
 
 describe('text-highlight', () => {
   /** @type {HTMLElement[]} */
@@ -89,5 +89,45 @@ describe('text-highlight', () => {
     expect(marks).toHaveLength(2);
     expect(marks[0].getAttribute('data-match')).toBe('0');
     expect(marks[1].getAttribute('data-match')).toBe('1');
+  });
+
+  // Regression test for a bug where a framework (Svelte) holding a direct reference to a rendered
+  // text node - for plain text bindings, or as a block anchor - would silently stop updating the
+  // DOM after a search ran once. Cause: unwrapping used to fabricate a *new* text node (and call
+  // `Node.normalize()`), permanently detaching the node the framework still thought was live. The
+  // fix restores the exact original node object on unwrap, so identity survives a highlight/clear
+  // cycle and any later write to `nodeValue` (as a framework's own re-render would perform) is
+  // still visible once restored.
+  it('restores the original text node object (identity) when clearing highlights', () => {
+    const root = mount('<p>Step one keyword here</p>');
+    const original = /** @type {Text} */ (Array.from(root.querySelectorAll('p'))[0].firstChild);
+    expect(original.nodeType).toBe(Node.TEXT_NODE);
+
+    applyHighlight(root, 'keyword');
+    expect(root.querySelectorAll('mark.trajectory-search-highlight')).toHaveLength(1);
+    // The original node is detached (still exists as an object, but no longer in the document)
+    // while marks are present.
+    expect(root.contains(original)).toBe(false);
+
+    clearHighlight(root);
+    expect(root.querySelectorAll('mark.trajectory-search-highlight')).toHaveLength(0);
+    // Same node object is back in the document, not a lookalike replacement.
+    expect(root.contains(original)).toBe(true);
+    expect(root.querySelector('p')?.firstChild).toBe(original);
+  });
+
+  it('surfaces a nodeValue written while the node was detached, once restored', () => {
+    // Simulates a framework fully re-rendering the text on a node it still holds a reference to
+    // (as a plain `{expression}` text binding does), while that node happens to be sitting inside
+    // a highlight mark. The whole original node - not just a fragment of it - is what comes back
+    // on `clearHighlight()`, so the framework's write to the complete string is what's visible.
+    const root = mount('<p>Step one keyword here</p>');
+    const original = /** @type {Text} */ (Array.from(root.querySelectorAll('p'))[0].firstChild);
+
+    applyHighlight(root, 'keyword');
+    original.nodeValue = 'Step two, different content entirely';
+    clearHighlight(root);
+
+    expect(root.querySelector('p')?.textContent).toBe('Step two, different content entirely');
   });
 });

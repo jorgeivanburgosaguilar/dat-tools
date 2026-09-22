@@ -231,6 +231,33 @@ describe('AgentTrajectoryViewer', () => {
     await screen.unmount();
   });
 
+  // Regression test: highlighting used to detach text nodes Svelte itself owns (see
+  // text-highlight.js's `replacements` doc comment), so once a search had run and been cleared,
+  // Svelte's own updates - like the Detail pane's "Step N" header - silently stopped landing on
+  // the page.
+  it('keeps updating the Detail header after a search is used and then cleared', async () => {
+    const screen = await render(AgentTrajectoryViewer);
+    await loadExample(screen);
+
+    const searchInput = screen.getByRole('searchbox', { name: 'Search steps...' });
+    await searchInput.fill('ba');
+    await expect.element(screen.getByText('1 / 5')).toBeVisible();
+
+    const nextBtn = screen.getByRole('button', { name: 'Next matching step' });
+    await nextBtn.click();
+    await nextBtn.click();
+
+    await searchInput.fill('');
+
+    const rows = screen.container.querySelectorAll('[data-step-index]');
+    /** @type {HTMLElement} */ (rows[0]).click();
+    await expect.element(screen.getByText('Step 1')).toBeVisible();
+
+    /** @type {HTMLElement} */ (rows[5]).click();
+    await expect.element(screen.getByText('Step 6')).toBeVisible();
+    await screen.unmount();
+  });
+
   it('filters by issue type using the issue dropdown', async () => {
     const screen = await render(AgentTrajectoryViewer);
     await loadExample(screen);

@@ -54,16 +54,73 @@ const BLOCK_TAGS = new Set([
 ]);
 
 /**
+ * Per-root record of what `replaceNodeWithMarks()` swapped out, so `unwrapMarks()` can put the
+ * *original* text node back rather than fabricate a new one. Svelte keeps direct references to the
+ * text nodes it renders - for plain text bindings, and as the anchors of `{#if}`/keyed
+ * `{#each}`/`{@html}` blocks - so replacing one with a lookalike (and, worse, calling
+ * `Node.normalize()`, which silently merges/drops neighboring text nodes Svelte also owns) detaches
+ * a node Svelte still thinks is live. Its subsequent updates then land on a node no longer in the
+ * document, which is why the reported bug ("step number stops updating") only appears *after* a
+ * search has run at least once.
+ * @type {WeakMap<Element, { original: Text, inserted: Node[] }[]>}
+ */
+const replacements = new WeakMap();
+
+/**
+ * @param {Element} root
+ * @param {Text} original
+ * @param {Node[]} inserted
+ */
+function recordReplacement(root, original, inserted) {
+  let list = replacements.get(root);
+  if (!list) {
+    list = [];
+    replacements.set(root, list);
+  }
+  list.push({ original, inserted });
+}
+
+/**
+ * Restores every text node this module replaced with highlight marks, using the exact same node
+ * object Svelte rendered (see `replacements`'s doc comment on why identity matters here) - never a
+ * freshly created one, and never `Node.normalize()`, which would merge/discard neighboring nodes
+ * Svelte still references.
  * @param {Element} root
  */
 function unwrapMarks(root) {
-  const marks = root.querySelectorAll(`mark.${MARK_CLASS}`);
-  for (const mark of marks) {
+  const list = replacements.get(root);
+  if (list) {
+    for (const { original, inserted } of list) {
+      const anchor = inserted[0];
+      const parent = anchor?.parentNode;
+      if (!parent) continue; // The whole subtree was removed elsewhere (e.g. step switched away).
+      parent.insertBefore(original, anchor);
+      for (const node of inserted) node.parentNode?.removeChild(node);
+    }
+    replacements.delete(root);
+  }
+
+  // Fallback for any mark left behind without a recorded replacement (defensive - shouldn't happen
+  // in normal operation, but keeps a stray `<mark>` from lingering forever).
+  const leftover = root.querySelectorAll(`mark.${MARK_CLASS}`);
+  for (const mark of leftover) {
     const parent = mark.parentNode;
     if (!parent) continue;
     parent.replaceChild(document.createTextNode(mark.textContent ?? ''), mark);
-    parent.normalize();
   }
+}
+
+/**
+ * Clears any highlight marks `applyHighlight()` previously inserted into `root`, restoring
+ * Svelte's original text nodes in place. Exported so callers can clear highlights in an
+ * `$effect.pre` - before Svelte patches the DOM for a new step/query - so no structural block
+ * operation (an `{#if}` toggling, a keyed `{#each}` reordering, `{@html}` re-rendering) ever runs
+ * while a node it owns is sitting inside a `<mark>`.
+ * @param {Element | null | undefined} root
+ */
+export function clearHighlight(root) {
+  if (!root) return;
+  unwrapMarks(root);
 }
 
 /**
@@ -85,33 +142,49 @@ function findBlockAncestor(node, root) {
  * @param {string} text
  * @param {{ start: number, end: number, matchIndex: number }[]} intervals - Sorted, non-overlapping,
  *   local to `text`.
+ * @returns {Node[]} The nodes inserted in `textNode`'s place, in document order - needed so
+ *   `unwrapMarks()` can find where to reinsert the original node later.
  */
 function replaceNodeWithMarks(textNode, text, intervals) {
   const frag = document.createDocumentFragment();
+  /** @type {Node[]} */
+  const inserted = [];
   let cursor = 0;
   for (const { start, end, matchIndex } of intervals) {
-    if (start > cursor) frag.appendChild(document.createTextNode(text.slice(cursor, start)));
+    if (start > cursor) {
+      const before = document.createTextNode(text.slice(cursor, start));
+      frag.appendChild(before);
+      inserted.push(before);
+    }
     const mark = document.createElement('mark');
     mark.className = MARK_CLASS;
     mark.dataset.match = String(matchIndex);
     mark.textContent = text.slice(start, end);
     frag.appendChild(mark);
+    inserted.push(mark);
     cursor = end;
   }
-  if (cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
+  if (cursor < text.length) {
+    const after = document.createTextNode(text.slice(cursor));
+    frag.appendChild(after);
+    inserted.push(after);
+  }
   textNode.parentNode?.replaceChild(frag, textNode);
+  return inserted;
 }
 
 /**
  * Highlights every occurrence of `lowerQuery` within one matching scope's text nodes, treating
  * their concatenated text as a single searchable string so a match that straddles a node boundary
  * (a syntax-highlighter token split, an inline `<strong>`/`<code>` wrapper, ...) is still found.
+ * @param {Element} root - The root passed to `applyHighlight()`, used only to key the
+ *   `replacements` record so `unwrapMarks()` can later restore these exact nodes.
  * @param {Text[]} textNodes - In document order.
  * @param {string} lowerQuery
  * @param {number} startIndex - First global match index to assign.
  * @returns {number} The next unused global match index.
  */
-function highlightBlock(textNodes, lowerQuery, startIndex) {
+function highlightBlock(root, textNodes, lowerQuery, startIndex) {
   const values = textNodes.map((n) => n.nodeValue ?? '');
   const concatenated = values.join('');
   const lower = concatenated.toLowerCase();
@@ -150,7 +223,10 @@ function highlightBlock(textNodes, lowerQuery, startIndex) {
         });
       }
     }
-    if (intervals.length > 0) replaceNodeWithMarks(textNode, values[i], intervals);
+    if (intervals.length > 0) {
+      const inserted = replaceNodeWithMarks(textNode, values[i], intervals);
+      recordReplacement(root, textNode, inserted);
+    }
   });
 
   return matchIndex;
@@ -191,6 +267,6 @@ export function applyHighlight(root, query) {
 
   let matchIndex = 0;
   for (const textNodes of blocks.values()) {
-    matchIndex = highlightBlock(textNodes, q, matchIndex);
+    matchIndex = highlightBlock(root, textNodes, q, matchIndex);
   }
 }
