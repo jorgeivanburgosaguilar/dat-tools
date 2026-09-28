@@ -13,6 +13,9 @@
  *    cited_ordinals, steps: [{ ordinal, index, number, label, cited, turn, prompts,
  *    blocks: [{ kind, name, text }] }] }`
  * where a block's `kind` is one of `thought`, `call`, `response`, `message`, `user`, `text`.
+ *
+ * The critic fields become a `cited_critique` property on step 0 (see `taskStep()`), which the
+ * viewer renders as its own section instead of a generic metadata row.
  */
 
 const DATA_MARKER = /\bconst\s+DATA\s*=\s*/;
@@ -27,7 +30,15 @@ const ARG_BULLET_RE = /^[ \t]*•[ \t]*\*\*([^*\n]+)\*\*[ \t]*:[ \t]*/gm;
 
 // Top-level keys handled explicitly below; everything else is passed through untouched so
 // `collectMetadata()` surfaces it as a metadata row instead of it silently disappearing.
-const HANDLED_TOP_KEYS = new Set(['steps', 'task', 'system_constraint', 'preamble']);
+const HANDLED_TOP_KEYS = new Set([
+  'steps',
+  'task',
+  'system_constraint',
+  'preamble',
+  'critic_allegation',
+  'critic_step_cited',
+  'cited_ordinals'
+]);
 const HANDLED_STEP_KEYS = new Set(['ordinal', 'index', 'number', 'blocks', 'prompts']);
 
 /**
@@ -52,6 +63,9 @@ const HANDLED_STEP_KEYS = new Set(['ordinal', 'index', 'number', 'blocks', 'prom
  * @property {string} [task]
  * @property {string} [preamble]
  * @property {string} [system_constraint]
+ * @property {string} [critic_allegation]
+ * @property {string} [critic_step_cited]
+ * @property {number[]} [cited_ordinals]
  * @property {HtmlTrajectoryDataStep[]} steps
  */
 
@@ -214,7 +228,26 @@ function textOf(value) {
 }
 
 /**
- * Builds the leading user step from the page-level task fields, or null when there are none.
+ * Groups the page-level critic fields into one object, or null when there's no allegation.
+ * @param {HtmlTrajectoryData} data
+ * @returns {Record<string, unknown> | null}
+ */
+function citedCritique(data) {
+  const allegation = textOf(data.critic_allegation);
+  if (!allegation) return null;
+  /** @type {Record<string, unknown>} */
+  const critique = { allegation };
+  const citedSteps = textOf(data.critic_step_cited);
+  if (citedSteps) critique.cited_steps = citedSteps;
+  if (Array.isArray(data.cited_ordinals) && data.cited_ordinals.length > 0) {
+    critique.cited_ordinals = data.cited_ordinals;
+  }
+  return critique;
+}
+
+/**
+ * Builds the leading user step from the page-level task fields - plus the critic's allegation as
+ * a `cited_critique` property - or null when there are none.
  * @param {HtmlTrajectoryData} data
  * @returns {ConvertedStep | null}
  */
@@ -226,8 +259,12 @@ function taskStep(data) {
   if (constraints) sections.push(`## System constraints\n\n${constraints}`);
   if (preamble) sections.push(`## Preamble\n\n${preamble}`);
   if (task) sections.push(`## Task\n\n${task}`);
-  if (sections.length === 0) return null;
-  return { step_id: 0, source: 'user', message: sections.join('\n\n') };
+  const critique = citedCritique(data);
+  if (sections.length === 0 && !critique) return null;
+  /** @type {ConvertedStep & Record<string, unknown>} */
+  const step = { step_id: 0, source: 'user', message: sections.join('\n\n') };
+  if (critique) step.cited_critique = critique;
+  return step;
 }
 
 /**
@@ -286,10 +323,10 @@ function convertStep(raw, i) {
 /**
  * Converts an exported HTML trajectory page into a trajectory object shaped for
  * `normalizeTrajectory()`: the task (with any system constraints) becomes a leading `user` step
- * 0, and each embedded step becomes an `agent` step whose thoughts/messages form the message,
- * `call` blocks the tool calls and `response` blocks the observation. Page-level extras (critic
- * notes, cited steps, ...) and per-step extras (label, turn, cited, non-empty prompts) are kept
- * as unknown keys, which the viewer renders as metadata.
+ * 0 carrying the critic's allegation as `cited_critique`, and each embedded step becomes an
+ * `agent` step whose thoughts/messages form the message, `call` blocks the tool calls and
+ * `response` blocks the observation. Remaining page-level extras and per-step extras (label,
+ * turn, cited, non-empty prompts) are kept as unknown keys, which the viewer renders as metadata.
  * @param {string} html
  * @param {HtmlTrajectoryOptions} [options]
  * @returns {ConvertedTrajectory}
@@ -332,7 +369,7 @@ const EXAMPLE_DATA = {
   preamble: '',
   system_constraint: '• Fix the root cause without weakening tests.',
   critic_allegation:
-    'The agent edited `calc.py` in step 3 without re-reading it first (an example note - nothing here is real).',
+    'The agent claims the fix is verified, but step 3 only runs the test that was already failing (an example note - nothing here is real):\n```bash\npython3 -m pytest -q\n```\nNo new test covers negative inputs.',
   critic_step_cited: 'Step 3',
   cited_ordinals: [3],
   steps: [

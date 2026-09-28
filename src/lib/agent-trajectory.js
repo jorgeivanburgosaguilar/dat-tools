@@ -71,6 +71,16 @@
  */
 
 /**
+ * A reviewer's critique of the trajectory, attached to the step that carries it (the HTML
+ * trajectory importer puts it on step 0) and rendered as its own section rather than as metadata.
+ * @typedef {Object} CitedCritique
+ * @property {string} allegation - Markdown text of the critique.
+ * @property {string | null} citedSteps - Human-readable description of the cited steps.
+ * @property {number[]} citedOrdinals - Step numbers the critique points at.
+ * @property {MetadataEntry[]} metadata - Any other keys on the critique object.
+ */
+
+/**
  * @typedef {Object} TrajectoryStep
  * @property {number} stepId
  * @property {string | null} timestamp
@@ -84,6 +94,8 @@
  * @property {string | null} modelName
  * @property {IssueLevel} level
  * @property {boolean} isTaskComplete
+ * @property {boolean} isCited - True when the raw step has `cited: true` (a reviewer cited it).
+ * @property {CitedCritique | null} citedCritique
  * @property {ToolCall[]} toolCalls
  * @property {ObservationResult[]} stepObservations - Every result under `observation.results`,
  *   rendered as its own section rather than spliced into `toolCalls` - the raw JSON keeps
@@ -147,11 +159,13 @@ const KNOWN_STEP_KEYS = [
   'model_name',
   'tool_calls',
   'observation',
-  'metrics'
+  'metrics',
+  'cited_critique'
 ];
 const KNOWN_TOOL_CALL_KEYS = ['tool_call_id', 'function_name', 'arguments'];
 const KNOWN_OBSERVATION_KEYS = ['results'];
 const KNOWN_OBSERVATION_RESULT_KEYS = ['source_call_id', 'content'];
+const KNOWN_CITED_CRITIQUE_KEYS = ['allegation', 'cited_steps', 'cited_ordinals'];
 
 // A string argument at or above this length (or containing a newline at all) is treated as code
 // rather than a scalar metadata value - covers today's `keystrokes` and whatever a future tool
@@ -363,6 +377,24 @@ export function isTaskCompleteStep(toolCalls, rawStep) {
 
 /**
  * @param {unknown} raw
+ * @returns {CitedCritique | null} Null when absent or when it carries no allegation text.
+ */
+export function normalizeCitedCritique(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const obj = /** @type {Record<string, unknown>} */ (raw);
+  if (typeof obj.allegation !== 'string' || !obj.allegation.trim()) return null;
+  return {
+    allegation: obj.allegation,
+    citedSteps: typeof obj.cited_steps === 'string' && obj.cited_steps ? obj.cited_steps : null,
+    citedOrdinals: Array.isArray(obj.cited_ordinals)
+      ? obj.cited_ordinals.filter((n) => typeof n === 'number')
+      : [],
+    metadata: collectMetadata(obj, KNOWN_CITED_CRITIQUE_KEYS)
+  };
+}
+
+/**
+ * @param {unknown} raw
  * @returns {{ results: ObservationResult[], metadata: MetadataEntry[] }}
  */
 function normalizeObservation(raw) {
@@ -488,6 +520,9 @@ function normalizeStep(raw, index) {
   // still surfaces visually via a badge - see TrajectoryStepDetail.svelte.
   const level = detectStepLevel(source, observation.results);
   const isTaskComplete = isTaskCompleteStep(toolCalls, obj);
+  // `cited` itself stays out of KNOWN_STEP_KEYS, so it still shows as a metadata row too.
+  const isCited = obj.cited === true;
+  const citedCritique = normalizeCitedCritique(obj.cited_critique);
   const metrics = metricEntries(obj.metrics);
   const metadata = collectMetadata(obj, KNOWN_STEP_KEYS);
   return {
@@ -501,6 +536,8 @@ function normalizeStep(raw, index) {
     modelName,
     level,
     isTaskComplete,
+    isCited,
+    citedCritique,
     toolCalls,
     stepObservations,
     observationMetadata: observation.metadata,
@@ -712,6 +749,11 @@ export function buildSearchIndex(steps) {
     if (step.timestamp) parts.push(step.timestamp);
     for (const field of step.messageFields) parts.push(field.value);
     if (step.reasoningContent) parts.push(step.reasoningContent);
+    if (step.citedCritique) {
+      if (step.citedCritique.citedSteps) parts.push(step.citedCritique.citedSteps);
+      parts.push(step.citedCritique.allegation);
+      for (const entry of step.citedCritique.metadata) parts.push(entry.value);
+    }
     for (const metric of step.metrics) parts.push(metric.display, String(metric.value));
     for (const entry of step.metadata) parts.push(entry.value);
     for (const entry of step.observationMetadata) parts.push(entry.value);

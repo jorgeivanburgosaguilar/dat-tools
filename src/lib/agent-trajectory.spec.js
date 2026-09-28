@@ -16,6 +16,7 @@ import {
   buildSearchIndex,
   filterSteps,
   countOccurrences,
+  normalizeCitedCritique,
   EXAMPLE_TRAJECTORY
 } from './agent-trajectory.js';
 
@@ -739,5 +740,73 @@ describe('countOccurrences', () => {
 describe('EXAMPLE_TRAJECTORY', () => {
   it('is valid JSON', () => {
     expect(() => JSON.parse(EXAMPLE_TRAJECTORY)).not.toThrow();
+  });
+
+  it('has no cited steps or critiques, so it renders exactly as before', () => {
+    const normalized = normalizeTrajectory(JSON.parse(EXAMPLE_TRAJECTORY));
+    if (!normalized.ok) throw new Error(normalized.reason);
+    expect(normalized.steps.every((s) => s.isCited === false)).toBe(true);
+    expect(normalized.steps.every((s) => s.citedCritique === null)).toBe(true);
+  });
+});
+
+describe('cited steps and cited critique', () => {
+  /** @param {Record<string, unknown>[]} steps */
+  const normalize = (steps) => {
+    const normalized = normalizeTrajectory({ steps });
+    if (!normalized.ok) throw new Error(normalized.reason);
+    return normalized.steps;
+  };
+
+  it('flags isCited only for a literal cited: true, keeping cited as metadata', () => {
+    const steps = normalize([{ cited: true }, { cited: false }, {}, { cited: 'yes' }]);
+    expect(steps.map((s) => s.isCited)).toEqual([true, false, false, false]);
+    expect(steps[0].metadata).toContainEqual({ path: 'cited', value: 'true', isJson: false });
+  });
+
+  it('parses cited_critique into its own field instead of a metadata row', () => {
+    const [step] = normalize([
+      {
+        message: 'Task',
+        cited_critique: {
+          allegation: 'Step 2 is wrong.',
+          cited_steps: 'Step 2',
+          cited_ordinals: [2, 'x'],
+          severity: 'high'
+        }
+      }
+    ]);
+    expect(step.citedCritique).toEqual({
+      allegation: 'Step 2 is wrong.',
+      citedSteps: 'Step 2',
+      citedOrdinals: [2],
+      metadata: [{ path: 'severity', value: 'high', isJson: false }]
+    });
+    expect(step.metadata.map((m) => m.path)).not.toContain('cited_critique');
+  });
+
+  it('returns null for a missing, malformed or empty critique', () => {
+    expect(normalizeCitedCritique(undefined)).toBeNull();
+    expect(normalizeCitedCritique('text')).toBeNull();
+    expect(normalizeCitedCritique([])).toBeNull();
+    expect(normalizeCitedCritique({ allegation: '  ' })).toBeNull();
+    expect(normalizeCitedCritique({ allegation: 'x' })).toEqual({
+      allegation: 'x',
+      citedSteps: null,
+      citedOrdinals: [],
+      metadata: []
+    });
+  });
+
+  it('includes the critique text in the search index', () => {
+    const steps = normalize([
+      {
+        message: 'Task',
+        cited_critique: { allegation: 'Loosened the Verifier', cited_steps: 'Step 8' }
+      }
+    ]);
+    const [haystack] = buildSearchIndex(steps);
+    expect(haystack).toContain('loosened the verifier');
+    expect(haystack).toContain('step 8');
   });
 });

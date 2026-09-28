@@ -154,11 +154,9 @@ describe('htmlTrajectoryToTrajectory', () => {
     expect(converted.session_id).toBe('fixed');
   });
 
-  it('passes page-level extras through for the metadata view', () => {
-    expect(result.critic_allegation).toBe('Step 2 is wrong.');
-    expect(result.critic_step_cited).toBe('Step 2');
-    expect(result.cited_ordinals).toEqual([2]);
+  it('passes remaining page-level extras through for the metadata view', () => {
     expect(result.case_id).toBe('case-a');
+    expect(result.kind).toBe('trajectory');
     expect(result).not.toHaveProperty('task');
     expect(result).not.toHaveProperty('preamble');
   });
@@ -168,6 +166,36 @@ describe('htmlTrajectoryToTrajectory', () => {
     expect(first.step_id).toBe(0);
     expect(first.source).toBe('user');
     expect(first.message).toBe('## System constraints\n\n• Be careful.\n\n## Task\n\nFix the bug.');
+  });
+
+  it('moves the critic fields into a cited_critique property on step 0', () => {
+    expect(result.steps[0].cited_critique).toEqual({
+      allegation: 'Step 2 is wrong.',
+      cited_steps: 'Step 2',
+      cited_ordinals: [2]
+    });
+    expect(result).not.toHaveProperty('critic_allegation');
+    expect(result).not.toHaveProperty('critic_step_cited');
+    expect(result).not.toHaveProperty('cited_ordinals');
+  });
+
+  it('adds no cited_critique when the allegation is empty', () => {
+    const converted = /** @type {any} */ (
+      htmlTrajectoryToTrajectory(page({ task: 't', critic_allegation: '  ', steps: [] }))
+    );
+    expect(converted.steps[0]).not.toHaveProperty('cited_critique');
+  });
+
+  it('creates step 0 for an allegation even without task fields', () => {
+    const converted = /** @type {any} */ (
+      htmlTrajectoryToTrajectory(page({ critic_allegation: 'Only this.', steps: [] }))
+    );
+    expect(converted.steps).toHaveLength(1);
+    expect(converted.steps[0]).toMatchObject({
+      step_id: 0,
+      message: '',
+      cited_critique: { allegation: 'Only this.' }
+    });
   });
 
   it('omits step 0 when the page has no task fields', () => {
@@ -216,10 +244,17 @@ describe('htmlTrajectoryToTrajectory', () => {
     expect(two.extra_blocks).toEqual([{ kind: 'user', name: '', text: 'Thanks!' }]);
   });
 
-  it('normalizes cleanly, surfacing the extras as metadata', () => {
+  it('normalizes cleanly, with the critique on step 0 and cited steps flagged', () => {
     const normalized = normalizeTrajectory(result);
     if (!normalized.ok) throw new Error(normalized.reason);
-    expect(normalized.metadata.map((m) => m.path)).toContain('critic_allegation');
+    expect(normalized.metadata.map((m) => m.path)).toEqual(['case_id', 'kind']);
+    expect(normalized.steps[0].citedCritique).toEqual({
+      allegation: 'Step 2 is wrong.',
+      citedSteps: 'Step 2',
+      citedOrdinals: [2],
+      metadata: []
+    });
+    expect(normalized.steps.map((s) => s.isCited)).toEqual([false, false, true]);
     expect(normalized.steps[2].metadata.map((m) => m.path)).toEqual(
       expect.arrayContaining(['label', 'cited', 'turn', 'prompts', 'extra_blocks'])
     );

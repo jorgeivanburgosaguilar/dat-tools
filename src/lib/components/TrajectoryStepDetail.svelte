@@ -87,12 +87,13 @@
     !!step && (step.stepObservations.length > 0 || step.observationMetadata.length > 0)
   );
 
-  // Per-window view state for the six collapsible sections below, driven by the Expand/Collapse
+  // Per-window view state for the seven collapsible sections below, driven by the Expand/Collapse
   // all buttons as well as each section's own <summary>. Deliberately *not* reset when `step`
   // changes - a reader who collapsed Raw JSON while triaging wants it to stay collapsed while
   // arrowing through the rest of the steps.
   let open = $state({
     message: true,
+    critique: true,
     reasoning: true,
     tools: true,
     observation: true,
@@ -103,6 +104,7 @@
   function expandAll() {
     open = {
       message: true,
+      critique: true,
       reasoning: true,
       tools: true,
       observation: true,
@@ -114,6 +116,7 @@
   function collapseAll() {
     open = {
       message: false,
+      critique: false,
       reasoning: false,
       tools: false,
       observation: false,
@@ -220,6 +223,34 @@
           {:else}
             <TrajectoryRichText text={currentStep.message} {lowlight} />
           {/if}
+        </div>
+      </details>
+    {/if}
+
+    {#if currentStep.citedCritique}
+      {@const critique = currentStep.citedCritique}
+      <details bind:open={open.critique}>
+        <summary
+          class="cursor-pointer text-[1em] font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400"
+        >
+          Cited critique
+        </summary>
+        <div
+          data-testid="step-cited-critique"
+          class="mt-2 space-y-2 rounded border border-amber-200 bg-amber-50/60 p-2 dark:border-amber-900 dark:bg-amber-950/30"
+        >
+          {#if critique.citedSteps || critique.citedOrdinals.length > 0}
+            <div class="font-mono text-[0.9em] text-amber-800 dark:text-amber-200">
+              Cited: {critique.citedSteps ??
+                `${critique.citedOrdinals.length === 1 ? 'Step' : 'Steps'} ${critique.citedOrdinals.join(', ')}`}
+            </div>
+          {/if}
+          <div
+            class="rounded border border-amber-100 bg-white dark:border-amber-900/60 dark:bg-gray-900"
+          >
+            <TrajectoryRichText text={critique.allegation} {lowlight} />
+          </div>
+          <MetadataList entries={critique.metadata} title="Critique metadata" />
         </div>
       </details>
     {/if}

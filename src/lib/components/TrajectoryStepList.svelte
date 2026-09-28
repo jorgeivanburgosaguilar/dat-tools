@@ -148,6 +148,12 @@
             >
           {/if}
         {/if}
+        {#if step.isCited}
+          <span
+            class="rounded bg-violet-100 px-1.5 py-0.5 font-medium text-violet-700 dark:bg-violet-900/50 dark:text-violet-300"
+            >cited</span
+          >
+        {/if}
         {#if delta}<span class="font-mono text-gray-400 dark:text-gray-500">{delta}</span>{/if}
         {#if step.toolCalls.length > 0}
           <span class="min-w-0 truncate font-mono text-gray-400 dark:text-gray-500"

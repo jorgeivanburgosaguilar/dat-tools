@@ -186,6 +186,29 @@ describe('AgentTrajectoryViewer', () => {
     await expect
       .element(screen.getByTestId('step-message').getByText(/Fix the failing test/))
       .toBeVisible();
+    const critique = screen.getByTestId('step-cited-critique');
+    await expect.element(critique.getByText('Cited: Step 3')).toBeVisible();
+    await expect.element(critique.getByText(/No new test covers negative inputs/)).toBeVisible();
+
+    // Only the example's cited step (ordinal 3, row index 3) carries the badge.
+    const rows = screen.container.querySelectorAll('[data-step-index]');
+    expect(Array.from(rows, (row) => /\bcited\b/.test(row.textContent ?? ''))).toEqual([
+      false,
+      false,
+      false,
+      true,
+      false
+    ]);
+    await screen.unmount();
+  });
+
+  it('shows no cited badge or critique section for the native example trajectory', async () => {
+    const screen = await render(AgentTrajectoryViewer);
+    await loadExample(screen);
+
+    const rows = screen.container.querySelectorAll('[data-step-index]');
+    expect(Array.from(rows).some((row) => /\bcited\b/.test(row.textContent ?? ''))).toBe(false);
+    expect(screen.container.querySelector('[data-testid="step-cited-critique"]')).toBeNull();
     await screen.unmount();
   });
 
