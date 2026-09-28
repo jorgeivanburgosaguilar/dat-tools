@@ -118,7 +118,8 @@
  * @property {Trajectory} trajectory
  * @property {import('./syntax-highlight.js').Lowlight | null} lowlight
  * @property {string} json - Canonical pretty-printed JSON of whatever was loaded (pasted text,
- *   a dropped/picked file, the bundled example, or HTML-tool-calls conversion output) - lets
+ *   a dropped/picked file, the bundled example, or HTML-tool-calls / HTML-trajectory conversion
+ *   output) - lets
  *   "Download JSON" save back exactly what's currently shown, regardless of how it arrived.
  */
 

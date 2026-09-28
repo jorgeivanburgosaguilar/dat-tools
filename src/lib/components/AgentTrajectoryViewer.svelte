@@ -299,8 +299,8 @@
 
   // Saves exactly what's currently loaded, not a re-serialization of the normalized/derived
   // `Trajectory` (which would drop unknown fields folded into `metadata` and reorder keys) - so a
-  // trajectory produced by "Import HTML Tool Calls" can be downloaded once and reloaded later
-  // without re-pasting or re-converting the original HTML.
+  // trajectory produced by "Import HTML Tool Calls" or "Import HTML Trajectory" can be downloaded
+  // once and reloaded later without re-pasting or re-converting the original HTML.
   function downloadJson() {
     if (!loadedJson) return;
     const sessionId = shared.trajectory?.sessionId?.replace(/[^\w.-]+/g, '-');

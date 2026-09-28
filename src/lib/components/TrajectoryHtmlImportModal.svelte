@@ -1,15 +1,35 @@
 <script>
-  import { htmlToTrajectory, EXAMPLE_TOOL_CALLS_HTML } from '$lib/html-tool-calls.js';
+  /**
+   * @typedef {{ steps: Record<string, unknown>[] }} ConvertedTrajectory
+   */
 
   /**
-   * @typedef {Object} HtmlToolCallsImportModalProps
+   * @typedef {Object} TrajectoryHtmlImportModalProps
    * @property {boolean} [open]
+   * @property {string} [title]
+   * @property {string} [description]
+   * @property {string} [placeholder]
+   * @property {(html: string) => ConvertedTrajectory} [convert] - Turns the pasted/dropped HTML
+   *   into trajectory JSON (e.g. `htmlToTrajectory` or `htmlTrajectoryToTrajectory`); throws an
+   *   Error whose message is shown inline when the HTML can't be converted.
+   * @property {string} [example] - HTML loaded by the "Load example" link; hidden when empty.
    * @property {(json: string) => void} [onimport]
    * @property {() => void} [onclose]
    */
 
-  /** @type {HtmlToolCallsImportModalProps} */
-  let { open = false, onimport = () => {}, onclose = () => {} } = $props();
+  /** @type {TrajectoryHtmlImportModalProps} */
+  let {
+    open = false,
+    title = 'Import HTML',
+    description = "Drop an exported HTML file or paste it below. It's converted into trajectory JSON and loaded into the viewer.",
+    placeholder = 'Paste HTML here...',
+    convert = () => {
+      throw new Error('No converter configured.');
+    },
+    example = '',
+    onimport = () => {},
+    onclose = () => {}
+  } = $props();
 
   let html = $state('');
   let dragActive = $state(false);
@@ -21,11 +41,11 @@
   let result = $derived.by(() => {
     if (!html.trim())
       return {
-        trajectory: /** @type {ReturnType<typeof htmlToTrajectory> | null} */ (null),
+        trajectory: /** @type {ConvertedTrajectory | null} */ (null),
         error: ''
       };
     try {
-      return { trajectory: htmlToTrajectory(html), error: '' };
+      return { trajectory: convert(html), error: '' };
     } catch (err) {
       return { trajectory: null, error: /** @type {Error} */ (err).message };
     }
@@ -65,7 +85,7 @@
   }
 
   function handleLoadExample() {
-    html = EXAMPLE_TOOL_CALLS_HTML;
+    html = example;
   }
 
   /** @param {File} file */
@@ -108,11 +128,8 @@
   class="fixed inset-0 m-auto h-fit w-full max-w-2xl rounded-lg bg-white p-0 shadow-xl backdrop:bg-black/50 dark:bg-gray-800"
 >
   <div class="flex flex-col p-6">
-    <h3 class="mb-1 text-xl font-bold text-gray-900 dark:text-gray-100">Import HTML Tool Calls</h3>
-    <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">
-      Drop an exported HTML tool-call transcript, paste it below, or try the bundled example. It's
-      converted into trajectory JSON and loaded into the viewer.
-    </p>
+    <h3 class="mb-1 text-xl font-bold text-gray-900 dark:text-gray-100">{title}</h3>
+    <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">{description}</p>
 
     <div
       role="button"
@@ -152,17 +169,19 @@
       <span class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">
         HTML
       </span>
-      <button
-        onclick={handleLoadExample}
-        class="text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
-      >
-        Load example
-      </button>
+      {#if example}
+        <button
+          onclick={handleLoadExample}
+          class="text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+        >
+          Load example
+        </button>
+      {/if}
     </div>
     <textarea
       bind:value={html}
       class="h-64 resize-none rounded border border-gray-200 bg-white p-3 font-mono text-sm text-gray-900 outline-none placeholder:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
-      placeholder="<details class=&quot;seg tool_call&quot;>…</details>"></textarea>
+      {placeholder}></textarea>
 
     {#if result.error}
       <p class="mt-2 text-sm text-red-600 dark:text-red-400">{result.error}</p>

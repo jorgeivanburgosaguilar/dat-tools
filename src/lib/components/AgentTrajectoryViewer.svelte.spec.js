@@ -171,6 +171,35 @@ describe('AgentTrajectoryViewer', () => {
     await screen.unmount();
   });
 
+  it('imports an HTML trajectory page via its modal and loads it', async () => {
+    const screen = await render(AgentTrajectoryViewer);
+
+    await screen.getByRole('button', { name: 'Import HTML Trajectory' }).click();
+    const dialog = screen.getByRole('dialog');
+    await expect.element(dialog.getByText('Import HTML Trajectory')).toBeVisible();
+    await dialog.getByRole('button', { name: 'Load example' }).click();
+    await expect.element(dialog.getByText('5 steps · 3 tool calls · 3 results')).toBeVisible();
+    await dialog.getByRole('button', { name: 'Import' }).click();
+
+    await expect.poll(() => screen.container.querySelectorAll('[data-step-index]').length).toBe(5);
+    // Step 0 - the page's task prompt - is selected by default.
+    await expect
+      .element(screen.getByTestId('step-message').getByText(/Fix the failing test/))
+      .toBeVisible();
+    await screen.unmount();
+  });
+
+  it('shows an error in the trajectory modal for HTML without embedded data', async () => {
+    const screen = await render(AgentTrajectoryViewer);
+
+    await screen.getByRole('button', { name: 'Import HTML Trajectory' }).click();
+    await screen.getByPlaceholder(/const DATA/).fill('<p>no embedded data here</p>');
+    await expect.element(screen.getByText(/No embedded trajectory found/)).toBeVisible();
+    await expect.element(screen.getByRole('button', { name: 'Import' })).toBeDisabled();
+
+    await screen.unmount();
+  });
+
   it('leaves the paste textarea untouched when the import modal is cancelled', async () => {
     const screen = await render(AgentTrajectoryViewer);
 

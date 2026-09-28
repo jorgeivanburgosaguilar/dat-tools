@@ -2,7 +2,9 @@
   import { parseJson } from '$lib/json-parser.js';
   import { normalizeTrajectory, EXAMPLE_TRAJECTORY } from '$lib/agent-trajectory.js';
   import { ensureHighlighter } from '$lib/syntax-highlight.js';
-  import HtmlToolCallsImportModal from '$lib/components/HtmlToolCallsImportModal.svelte';
+  import { htmlToTrajectory, EXAMPLE_TOOL_CALLS_HTML } from '$lib/html-tool-calls.js';
+  import { htmlTrajectoryToTrajectory, EXAMPLE_TRAJECTORY_HTML } from '$lib/html-trajectory.js';
+  import TrajectoryHtmlImportModal from '$lib/components/TrajectoryHtmlImportModal.svelte';
 
   /**
    * @typedef {Object} TrajectoryLoaderProps
@@ -17,6 +19,12 @@
   let loading = $state(false);
   let dragActive = $state(false);
   let showHtmlImport = $state(false);
+  let showHtmlTrajectoryImport = $state(false);
+
+  const HTML_TRAJECTORY_DESCRIPTION =
+    "Drop an exported HTML trajectory page (one that embeds its data as const DATA = {…}), paste it below, or try the bundled example. It's converted into trajectory JSON and loaded into the viewer.";
+  // No closing script tag: one inside this literal would end the component's own script block.
+  const HTML_TRAJECTORY_PLACEHOLDER = '<script>const DATA = {"steps": […]};';
 
   /** @type {HTMLInputElement | null} */
   let fileInputEl = $state(null);
@@ -61,6 +69,7 @@
   /** @param {string} json */
   function importHtml(json) {
     showHtmlImport = false;
+    showHtmlTrajectoryImport = false;
     text = json;
     load(json);
   }
@@ -102,7 +111,7 @@
     </h2>
     <p class="mt-1 text-[1.125em] text-gray-500 dark:text-gray-400">
       Drop a trajectory JSON file, paste it below, try the bundled example, or import an exported
-      HTML tool-call transcript. Everything stays in your browser.
+      HTML tool-call transcript or HTML trajectory page. Everything stays in your browser.
     </p>
   </div>
 
@@ -180,11 +189,34 @@
     >
       Import HTML Tool Calls
     </button>
+    <button
+      onclick={() => (showHtmlTrajectoryImport = true)}
+      disabled={loading}
+      class="rounded-md border border-gray-200 px-4 py-1.5 text-[1em] font-semibold text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+    >
+      Import HTML Trajectory
+    </button>
   </div>
 </div>
 
-<HtmlToolCallsImportModal
+<TrajectoryHtmlImportModal
   open={showHtmlImport}
+  title="Import HTML Tool Calls"
+  description="Drop an exported HTML tool-call transcript, paste it below, or try the bundled example. It's converted into trajectory JSON and loaded into the viewer."
+  placeholder="<details class=&quot;seg tool_call&quot;>…</details>"
+  convert={htmlToTrajectory}
+  example={EXAMPLE_TOOL_CALLS_HTML}
   onimport={importHtml}
   onclose={() => (showHtmlImport = false)}
+/>
+
+<TrajectoryHtmlImportModal
+  open={showHtmlTrajectoryImport}
+  title="Import HTML Trajectory"
+  description={HTML_TRAJECTORY_DESCRIPTION}
+  placeholder={HTML_TRAJECTORY_PLACEHOLDER}
+  convert={htmlTrajectoryToTrajectory}
+  example={EXAMPLE_TRAJECTORY_HTML}
+  onimport={importHtml}
+  onclose={() => (showHtmlTrajectoryImport = false)}
 />
