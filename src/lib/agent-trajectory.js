@@ -8,8 +8,13 @@
  * data disappear from the viewer - worst case a field shows up as a generic key/value row instead
  * of a purpose-built widget.
  *
+ * Chat-messages trajectories (an OpenAI-style `messages` array of role-tagged turns) have no
+ * steps array; they're converted to the steps shape first by `messagesToTrajectory()`.
+ *
  * Pure and DOM-free - safe to import from either Vitest project.
  */
+
+import { messagesToTrajectory } from './messages-trajectory.js';
 
 /**
  * @typedef {Object} MetadataEntry
@@ -164,13 +169,17 @@ const KNOWN_STEP_KEYS = [
 ];
 const KNOWN_TOOL_CALL_KEYS = ['tool_call_id', 'function_name', 'arguments'];
 const KNOWN_OBSERVATION_KEYS = ['results'];
-const KNOWN_OBSERVATION_RESULT_KEYS = ['source_call_id', 'content'];
+const KNOWN_OBSERVATION_RESULT_KEYS = ['source_call_id', 'content', 'exception_info', 'warning'];
 const KNOWN_CITED_CRITIQUE_KEYS = ['allegation', 'cited_steps', 'cited_ordinals'];
 
 // A string argument at or above this length (or containing a newline at all) is treated as code
 // rather than a scalar metadata value - covers today's `keystrokes` and whatever a future tool
 // calls its long-form payload.
 const CODE_ARG_MIN_LENGTH = 40;
+
+// String arguments that are always code, however short - a one-word shell command still reads
+// better in a code block than as a metadata row.
+const CODE_ARG_KEYS = new Set(['command', 'cmd', 'keystrokes', 'code', 'script']);
 
 const SUMMARY_MAX_LENGTH = 140;
 
@@ -267,7 +276,9 @@ function splitArguments(raw) {
   for (const [key, value] of Object.entries(raw)) {
     if (
       typeof value === 'string' &&
-      (value.includes('\n') || value.length >= CODE_ARG_MIN_LENGTH)
+      (value.includes('\n') ||
+        value.length >= CODE_ARG_MIN_LENGTH ||
+        (CODE_ARG_KEYS.has(key) && value.length > 0))
     ) {
       codeArgs.push({ label: key, code: value });
     } else {
@@ -410,11 +421,19 @@ function normalizeObservation(raw) {
           ? stringifyValue(resultObj.content)
           : '';
     const parts = splitObservation(content);
-    const level = noticeLevel(parts.notice);
+    // Harness-reported problems carried as their own fields (`exception_info` for a command that
+    // failed to run or timed out, `warning` for truncated output) rather than as a prefix of the
+    // content.
+    const exceptionInfo =
+      typeof resultObj.exception_info === 'string' ? resultObj.exception_info.trim() : '';
+    const warning = typeof resultObj.warning === 'string' ? resultObj.warning.trim() : '';
+    const notice = [exceptionInfo, warning, parts.notice].filter(Boolean).join('\n\n');
+    const contentLevel = noticeLevel(parts.notice);
+    const level = exceptionInfo ? 'err' : warning && contentLevel === 'ok' ? 'warn' : contentLevel;
     return {
       sourceCallId: typeof resultObj.source_call_id === 'string' ? resultObj.source_call_id : null,
       content,
-      notice: parts.notice,
+      notice,
       marker: parts.marker,
       terminal: parts.terminal,
       level,
@@ -595,16 +614,30 @@ function resolveRoot(data) {
  * @returns {Trajectory | TrajectoryError}
  */
 export function normalizeTrajectory(data) {
-  const resolved = resolveRoot(data);
+  let resolved = resolveRoot(data);
+  /** @type {unknown[] | null} */
+  let rawOverrides = null;
+  if (!resolved) {
+    const converted = messagesToTrajectory(data);
+    if (converted) {
+      resolved = resolveRoot(converted.trajectory);
+      rawOverrides = converted.rawSteps;
+    }
+  }
   if (!resolved) {
     return {
       ok: false,
       reason:
-        'No steps array found. Expected an object with a "steps" array (optionally nested under "trajectory"), or a bare array of steps.'
+        'No steps or messages array found. Expected an object with a "steps" array (optionally nested under "trajectory"), a bare array of steps, or a chat "messages" array of role-tagged turns.'
     };
   }
   const { stepsRaw, container } = resolved;
-  const steps = stepsRaw.map((raw, i) => normalizeStep(raw, i));
+  const steps = stepsRaw.map((raw, i) => {
+    const step = normalizeStep(raw, i);
+    // Show the source message(s) in the Raw JSON view, not the intermediate converted step.
+    if (rawOverrides) step.raw = rawOverrides[i];
+    return step;
+  });
   return {
     ok: true,
     schemaVersion: typeof container?.schema_version === 'string' ? container.schema_version : null,

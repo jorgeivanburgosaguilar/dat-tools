@@ -337,7 +337,7 @@ describe('normalizeTrajectory', () => {
     const result = normalizeTrajectory({ not: 'a trajectory' });
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.reason).toMatch(/steps array/i);
+    expect(result.reason).toMatch(/steps or messages array/i);
   });
 
   it('collects an unknown top-level key into metadata', () => {
