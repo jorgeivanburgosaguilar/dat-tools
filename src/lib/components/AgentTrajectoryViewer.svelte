@@ -5,6 +5,7 @@
   import TrajectoryStepList from './TrajectoryStepList.svelte';
   import TrajectoryStepDetail from './TrajectoryStepDetail.svelte';
   import PopoutSatelliteBar from './PopoutSatelliteBar.svelte';
+  import TrajectoryInfo from './TrajectoryInfo.svelte';
   import { createPopoutSync } from '$lib/popout-sync.js';
   import {
     trajectoryStats,
@@ -445,6 +446,7 @@
     <span class="text-[1em] text-red-500 dark:text-red-400">Pop-up blocked by the browser</span>
   {/if}
   {@render searchAndFilters()}
+  <TrajectoryInfo trajectory={shared.trajectory} />
   <button
     onclick={downloadJson}
     class="rounded px-2 py-1 text-[1em] font-medium whitespace-nowrap text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"

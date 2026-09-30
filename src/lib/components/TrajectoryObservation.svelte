@@ -2,6 +2,7 @@
   import TrajectoryCodeBlock from './TrajectoryCodeBlock.svelte';
   import MetadataList from './MetadataList.svelte';
   import { guessCodeLanguage } from '$lib/trajectory-content.js';
+  import { displayCallId } from '$lib/agent-trajectory.js';
 
   /**
    * Renders one observation result: an optional severity-colored notice banner (extracted by
@@ -33,8 +34,11 @@
 </script>
 
 {#if observation.sourceCallId}
-  <div class="font-mono text-[0.9em] text-gray-400 dark:text-gray-500">
-    &rarr; {observation.sourceCallId}
+  <div
+    class="font-mono text-[0.9em] text-gray-400 dark:text-gray-500"
+    title={observation.sourceCallId}
+  >
+    &rarr; {displayCallId(observation.sourceCallId)}
   </div>
 {/if}
 {#if observation.notice}

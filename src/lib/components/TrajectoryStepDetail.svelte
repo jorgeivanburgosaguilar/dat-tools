@@ -4,6 +4,7 @@
   import TrajectoryObservation from './TrajectoryObservation.svelte';
   import MetadataList from './MetadataList.svelte';
   import { guessCodeLanguage } from '$lib/trajectory-content.js';
+  import { displayCallId } from '$lib/agent-trajectory.js';
   import { applyHighlight, clearHighlight, HIGHLIGHT_CLASS } from '$lib/text-highlight.js';
 
   /**
@@ -288,8 +289,9 @@
                   >{toolCall.functionName}</span
                 >
                 {#if toolCall.toolCallId}
-                  <span class="font-mono text-gray-400 dark:text-gray-500"
-                    >{toolCall.toolCallId}</span
+                  <span
+                    class="font-mono text-gray-400 dark:text-gray-500"
+                    title={toolCall.toolCallId}>{displayCallId(toolCall.toolCallId)}</span
                   >
                 {/if}
               </div>

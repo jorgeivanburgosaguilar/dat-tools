@@ -159,11 +159,68 @@ function convertToolCall(raw) {
   return out;
 }
 
+// Keys a command-result JSON string is made of; `unpackCommandResult()` in strict mode refuses
+// anything carrying other keys so arbitrary JSON printed by a command is never mistaken for one.
+const COMMAND_RESULT_KEYS = new Set([
+  'returncode',
+  'output',
+  'output_head',
+  'output_tail',
+  'elided_chars',
+  'warning',
+  'exception_info'
+]);
+
 /**
- * Converts one `tool` message into an observation result. Some harnesses encode the command
- * result as a JSON string (`{ returncode, output }`, or `output_head` / `output_tail` /
- * `elided_chars` / `warning` for truncated output, plus `exception_info` when the command failed
- * to run); anything else is shown verbatim.
+ * Unpacks a command result some harnesses encode as a JSON string (`{ returncode, output }`, or
+ * `output_head` / `output_tail` / `elided_chars` / `warning` for truncated output, plus
+ * `exception_info` when the command failed to run).
+ * @param {string} text
+ * @param {{ strict?: boolean }} [options] - `strict` additionally requires `returncode` and
+ *   nothing but the known command-result keys.
+ * @returns {{ content: string, fields: Record<string, unknown> } | null} The terminal output and
+ *   every other field, or null when `text` isn't a command result.
+ */
+export function unpackCommandResult(text, { strict = false } = {}) {
+  if (!text.trim().startsWith('{')) return null;
+  /** @type {Record<string, unknown> | null} */
+  let parsed = null;
+  try {
+    const value = JSON.parse(text);
+    if (isObject(value)) parsed = value;
+  } catch {
+    parsed = null;
+  }
+  if (!parsed) return null;
+  if (strict) {
+    if (!('returncode' in parsed)) return null;
+    if (!Object.keys(parsed).every((key) => COMMAND_RESULT_KEYS.has(key))) return null;
+  } else if (!('output' in parsed || 'output_head' in parsed || 'returncode' in parsed)) {
+    return null;
+  }
+
+  let content = '';
+  if (typeof parsed.output === 'string') {
+    content = parsed.output;
+  } else if (typeof parsed.output_head === 'string' || typeof parsed.output_tail === 'string') {
+    const elided =
+      typeof parsed.elided_chars === 'number'
+        ? `${parsed.elided_chars.toLocaleString('en-US')} characters elided`
+        : 'output elided';
+    content = `${parsed.output_head ?? ''}\n\n… [${elided}] …\n\n${parsed.output_tail ?? ''}`;
+  }
+  /** @type {Record<string, unknown>} */
+  const fields = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (key === 'output' || key === 'output_head' || key === 'output_tail') continue;
+    fields[key] = value;
+  }
+  return { content, fields };
+}
+
+/**
+ * Converts one `tool` message into an observation result; content that isn't a command-result
+ * JSON string is shown verbatim.
  * @param {Record<string, unknown>} message
  * @returns {Record<string, unknown>}
  */
@@ -175,33 +232,10 @@ export function convertToolResult(message) {
     source_call_id: typeof message.tool_call_id === 'string' ? message.tool_call_id : null
   };
 
-  /** @type {Record<string, unknown> | null} */
-  let parsed = null;
-  if (text.trim().startsWith('{')) {
-    try {
-      const value = JSON.parse(text);
-      if (isObject(value)) parsed = value;
-    } catch {
-      parsed = null;
-    }
-  }
-
-  if (parsed && ('output' in parsed || 'output_head' in parsed || 'returncode' in parsed)) {
-    if (typeof parsed.output === 'string') {
-      result.content = parsed.output;
-    } else if (typeof parsed.output_head === 'string' || typeof parsed.output_tail === 'string') {
-      const elided =
-        typeof parsed.elided_chars === 'number'
-          ? `${parsed.elided_chars.toLocaleString('en-US')} characters elided`
-          : 'output elided';
-      result.content = `${parsed.output_head ?? ''}\n\n… [${elided}] …\n\n${parsed.output_tail ?? ''}`;
-    } else {
-      result.content = '';
-    }
-    for (const [key, value] of Object.entries(parsed)) {
-      if (key === 'output' || key === 'output_head' || key === 'output_tail') continue;
-      result[key] = value;
-    }
+  const unpacked = unpackCommandResult(text);
+  if (unpacked) {
+    result.content = unpacked.content;
+    Object.assign(result, unpacked.fields);
   } else {
     result.content = text;
   }

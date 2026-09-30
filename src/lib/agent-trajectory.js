@@ -14,7 +14,7 @@
  * Pure and DOM-free - safe to import from either Vitest project.
  */
 
-import { messagesToTrajectory } from './messages-trajectory.js';
+import { messagesToTrajectory, unpackCommandResult } from './messages-trajectory.js';
 
 /**
  * @typedef {Object} MetadataEntry
@@ -217,6 +217,57 @@ export function collectMetadata(obj, knownKeys = [], basePath = '') {
 }
 
 /**
+ * @typedef {Object} MetadataNode
+ * @property {string} key - Last path segment.
+ * @property {string} path - Full dotted path.
+ * @property {MetadataEntry | null} entry - The entry stored at exactly this path, if any.
+ * @property {MetadataNode[]} children
+ */
+
+/**
+ * Groups a flat `collectMetadata()` list back into a tree by splitting each dotted path, keeping
+ * first-seen order, so nested data can be shown as collapsible groups.
+ * @param {MetadataEntry[]} entries
+ * @returns {MetadataNode[]}
+ */
+export function metadataTree(entries) {
+  /** @type {MetadataNode[]} */
+  const roots = [];
+  for (const entry of entries) {
+    let level = roots;
+    const segments = entry.path.split('.');
+    /** @type {MetadataNode | null} */
+    let node = null;
+    segments.forEach((key, i) => {
+      const path = segments.slice(0, i + 1).join('.');
+      node = level.find((n) => n.key === key) ?? null;
+      if (!node) {
+        node = { key, path, entry: null, children: [] };
+        level.push(node);
+      }
+      level = node.children;
+    });
+    if (node) /** @type {MetadataNode} */ (node).entry = entry;
+  }
+  return roots;
+}
+
+// Some providers append an opaque signature to a tool call id after this separator
+// (`<id>__thought__<base64>`); only the part before it is the id a reader cares about.
+const CALL_ID_SUFFIX_SEPARATOR = '__thought__';
+
+/**
+ * Shortens a tool call id for display by dropping a provider-appended signature suffix. The full
+ * id stays in the data; callers show it as a tooltip.
+ * @param {string} id
+ * @returns {string}
+ */
+export function displayCallId(id) {
+  const at = id.indexOf(CALL_ID_SUFFIX_SEPARATOR);
+  return at > 0 ? id.slice(0, at) : id;
+}
+
+/**
  * @param {unknown} value
  * @returns {string}
  */
@@ -250,11 +301,34 @@ function formatMetricValue(key, value) {
  */
 export function metricEntries(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [];
-  return Object.entries(raw).map(([key, value]) => ({
-    key,
-    value,
-    display: formatMetricValue(key, value)
-  }));
+  return Object.entries(raw)
+    .filter(([, value]) => !isNestedValue(value))
+    .map(([key, value]) => ({
+      key,
+      value,
+      display: formatMetricValue(key, value)
+    }));
+}
+
+/**
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function isNestedValue(value) {
+  return value !== null && typeof value === 'object';
+}
+
+/**
+ * The metric keys `metricEntries()` leaves out because their value is an object or array (a
+ * breakdown tree rather than a single figure), as metadata entries under `basePath`.
+ * @param {unknown} raw
+ * @param {string} basePath
+ * @returns {MetadataEntry[]}
+ */
+export function nestedMetricMetadata(raw, basePath) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [];
+  const nested = Object.fromEntries(Object.entries(raw).filter(([, v]) => isNestedValue(v)));
+  return collectMetadata(nested, [], basePath);
 }
 
 /**
@@ -414,19 +488,31 @@ function normalizeObservation(raw) {
   const resultsRaw = Array.isArray(obj.results) ? obj.results : [];
   const results = resultsRaw.map((r) => {
     const resultObj = r && typeof r === 'object' ? /** @type {Record<string, unknown>} */ (r) : {};
-    const content =
+    let content =
       typeof resultObj.content === 'string'
         ? resultObj.content
         : resultObj.content !== undefined
           ? stringifyValue(resultObj.content)
           : '';
+    // Some producers leave the command result as a JSON string inside `content`; unpack it (only
+    // when the result carries no problem fields of its own) so the terminal output reads as text.
+    /** @type {Record<string, unknown>} */
+    let unpackedFields = {};
+    if (resultObj.exception_info === undefined && resultObj.warning === undefined) {
+      const unpacked = unpackCommandResult(content, { strict: true });
+      if (unpacked) {
+        content = unpacked.content;
+        unpackedFields = unpacked.fields;
+      }
+    }
     const parts = splitObservation(content);
     // Harness-reported problems carried as their own fields (`exception_info` for a command that
     // failed to run or timed out, `warning` for truncated output) rather than as a prefix of the
     // content.
-    const exceptionInfo =
-      typeof resultObj.exception_info === 'string' ? resultObj.exception_info.trim() : '';
-    const warning = typeof resultObj.warning === 'string' ? resultObj.warning.trim() : '';
+    const exceptionInfoRaw = resultObj.exception_info ?? unpackedFields.exception_info;
+    const warningRaw = resultObj.warning ?? unpackedFields.warning;
+    const exceptionInfo = typeof exceptionInfoRaw === 'string' ? exceptionInfoRaw.trim() : '';
+    const warning = typeof warningRaw === 'string' ? warningRaw.trim() : '';
     const notice = [exceptionInfo, warning, parts.notice].filter(Boolean).join('\n\n');
     const contentLevel = noticeLevel(parts.notice);
     const level = exceptionInfo ? 'err' : warning && contentLevel === 'ok' ? 'warn' : contentLevel;
@@ -437,7 +523,10 @@ function normalizeObservation(raw) {
       marker: parts.marker,
       terminal: parts.terminal,
       level,
-      metadata: collectMetadata(resultObj, KNOWN_OBSERVATION_RESULT_KEYS)
+      metadata: [
+        ...collectMetadata(resultObj, KNOWN_OBSERVATION_RESULT_KEYS),
+        ...collectMetadata(unpackedFields, ['exception_info', 'warning'])
+      ]
     };
   });
   return { results, metadata: collectMetadata(obj, KNOWN_OBSERVATION_KEYS) };
@@ -543,7 +632,10 @@ function normalizeStep(raw, index) {
   const isCited = obj.cited === true;
   const citedCritique = normalizeCitedCritique(obj.cited_critique);
   const metrics = metricEntries(obj.metrics);
-  const metadata = collectMetadata(obj, KNOWN_STEP_KEYS);
+  const metadata = [
+    ...collectMetadata(obj, KNOWN_STEP_KEYS),
+    ...nestedMetricMetadata(obj.metrics, 'metrics')
+  ];
   return {
     stepId,
     timestamp,
@@ -645,7 +737,12 @@ export function normalizeTrajectory(data) {
     agent: normalizeAgent(container?.agent),
     steps,
     finalMetrics: metricEntries(container?.final_metrics),
-    metadata: container ? collectMetadata(container, KNOWN_TOP_KEYS) : []
+    metadata: container
+      ? [
+          ...collectMetadata(container, KNOWN_TOP_KEYS),
+          ...nestedMetricMetadata(container.final_metrics, 'final_metrics')
+        ]
+      : []
   };
 }
 

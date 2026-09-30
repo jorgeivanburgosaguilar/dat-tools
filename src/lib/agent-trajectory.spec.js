@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   collectMetadata,
   metricEntries,
+  nestedMetricMetadata,
+  metadataTree,
+  displayCallId,
   splitObservation,
   noticeLevel,
   detectStepLevel,
@@ -98,6 +101,116 @@ describe('metricEntries', () => {
   it('tolerates metrics that omit cached_tokens', () => {
     const entries = metricEntries({ prompt_tokens: 10, completion_tokens: 2, cost_usd: 0.01 });
     expect(entries.map((e) => e.key)).toEqual(['prompt_tokens', 'completion_tokens', 'cost_usd']);
+  });
+});
+
+describe('nested metrics', () => {
+  it('leaves object-valued metric keys out of metricEntries', () => {
+    const entries = metricEntries({ prompt_tokens: 5, extra: { a: { b: 1 } } });
+    expect(entries.map((e) => e.key)).toEqual(['prompt_tokens']);
+  });
+
+  it('routes them to metadata under the given base path', () => {
+    const entries = nestedMetricMetadata({ prompt_tokens: 5, extra: { a: { b: 1 } } }, 'metrics');
+    expect(entries).toEqual([{ path: 'metrics.extra.a.b', value: '1', isJson: false }]);
+  });
+
+  it('puts step and trajectory breakdowns into metadata', () => {
+    const result = normalizeTrajectory({
+      steps: [{ step_id: 1, source: 'agent', message: 'hi', metrics: { n: 1, extra: { k: 2 } } }],
+      final_metrics: { total: 3, extra: { k: 4 } }
+    });
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.steps[0].metrics.map((m) => m.key)).toEqual(['n']);
+    expect(result.steps[0].metadata.map((m) => m.path)).toContain('metrics.extra.k');
+    expect(result.finalMetrics.map((m) => m.key)).toEqual(['total']);
+    expect(result.metadata.map((m) => m.path)).toContain('final_metrics.extra.k');
+  });
+});
+
+describe('metadataTree', () => {
+  it('groups dotted paths into nested nodes in first-seen order', () => {
+    const tree = metadataTree([
+      { path: 'a.b', value: '1', isJson: false },
+      { path: 'top', value: '2', isJson: false },
+      { path: 'a.c.d', value: '3', isJson: false }
+    ]);
+    expect(tree.map((n) => n.key)).toEqual(['a', 'top']);
+    expect(tree[0].entry).toBeNull();
+    expect(tree[0].children.map((n) => n.key)).toEqual(['b', 'c']);
+    expect(tree[0].children[1].children[0].entry?.value).toBe('3');
+    expect(tree[1].children).toEqual([]);
+  });
+
+  it('keeps an entry that shares its path with a parent of other entries', () => {
+    const tree = metadataTree([
+      { path: 'a', value: 'x', isJson: false },
+      { path: 'a.b', value: 'y', isJson: false }
+    ]);
+    expect(tree).toHaveLength(1);
+    expect(tree[0].entry?.value).toBe('x');
+    expect(tree[0].children[0].entry?.value).toBe('y');
+  });
+});
+
+describe('displayCallId', () => {
+  it('drops a provider-appended signature suffix', () => {
+    expect(displayCallId('call_1__thought__AbC/+=')).toBe('call_1');
+  });
+
+  it('leaves an ordinary id unchanged', () => {
+    expect(displayCallId('call_1')).toBe('call_1');
+    expect(displayCallId('__thought__x')).toBe('__thought__x');
+  });
+});
+
+describe('command-result unpacking in observations', () => {
+  /** @param {unknown} content */
+  function observe(content) {
+    const result = normalizeTrajectory({
+      steps: [{ step_id: 1, source: 'agent', message: '', observation: { results: [{ content }] } }]
+    });
+    if (!result.ok) throw new Error('expected ok');
+    return result.steps[0].stepObservations[0];
+  }
+
+  it('unpacks output and keeps returncode as metadata', () => {
+    const obs = observe(JSON.stringify({ returncode: 0, output: 'line1\nline2' }));
+    expect(obs.content).toBe('line1\nline2');
+    expect(obs.level).toBe('ok');
+    expect(obs.metadata).toEqual([{ path: 'returncode', value: '0', isJson: false }]);
+  });
+
+  it('joins truncated head and tail around an elision marker', () => {
+    const obs = observe(
+      JSON.stringify({
+        returncode: 0,
+        output_head: 'H',
+        output_tail: 'T',
+        elided_chars: 1234,
+        warning: 'Output truncated'
+      })
+    );
+    expect(obs.content).toContain('H');
+    expect(obs.content).toContain('1,234 characters elided');
+    expect(obs.content).toContain('T');
+    expect(obs.level).toBe('warn');
+    expect(obs.notice).toContain('Output truncated');
+  });
+
+  it('reports exception_info as an error notice', () => {
+    const obs = observe(
+      JSON.stringify({ returncode: -1, output: '', exception_info: 'action was not executed' })
+    );
+    expect(obs.level).toBe('err');
+    expect(obs.notice).toContain('action was not executed');
+  });
+
+  it('leaves JSON that is not a command result untouched', () => {
+    const text = JSON.stringify({ returncode: 0, output: 'x', other: 1 });
+    expect(observe(text).content).toBe(text);
+    const plain = JSON.stringify({ name: 'pkg', version: '1.0.0' });
+    expect(observe(plain).content).toBe(plain);
   });
 });
 
